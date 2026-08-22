@@ -402,7 +402,10 @@ export const registerWebhook = createServerFn({ method: "POST" })
     // The id-preview host redirects through auth; use the stable public dev host instead.
     const origin = data.origin
       .replace(/\/$/, "")
-      .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2");
+      .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2")
+      // sandbox/preview iframe host -> stable public dev host
+      .replace(/^https:\/\/([0-9a-f-]{36})\.lovableproject\.com$/, "https://project--$1-dev.lovable.app")
+      .replace(/^https:\/\/([0-9a-f-]{36})\.(?:sandbox\.)?lovable\.app$/, "https://project--$1-dev.lovable.app");
     const url = `${origin}/api/public/telegram/webhook`;
     const res = await setWebhook(url, deriveTelegramWebhookSecret(key));
     await setMyCommands();
