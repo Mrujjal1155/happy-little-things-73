@@ -43,6 +43,7 @@ export type Database = {
           expires_at: string
           id: string
           kind: string
+          meta: Json
           network: string | null
           status: string
           telegram_id: number
@@ -56,6 +57,7 @@ export type Database = {
           expires_at?: string
           id?: string
           kind?: string
+          meta?: Json
           network?: string | null
           status?: string
           telegram_id: number
@@ -69,6 +71,7 @@ export type Database = {
           expires_at?: string
           id?: string
           kind?: string
+          meta?: Json
           network?: string | null
           status?: string
           telegram_id?: number
@@ -191,11 +194,49 @@ export type Database = {
         }
         Relationships: []
       }
+      coupons: {
+        Row: {
+          amount_off: number
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number
+          percent: number
+          used_count: number
+        }
+        Insert: {
+          amount_off?: number
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          percent?: number
+          used_count?: number
+        }
+        Update: {
+          amount_off?: number
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          percent?: number
+          used_count?: number
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
+          coupon_code: string | null
           created_at: string
           delivered_content: string | null
           delivery_type: string
+          discount: number
           id: string
           order_no: number
           product_id: string | null
@@ -208,9 +249,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          coupon_code?: string | null
           created_at?: string
           delivered_content?: string | null
           delivery_type?: string
+          discount?: number
           id?: string
           order_no?: number
           product_id?: string | null
@@ -223,9 +266,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          coupon_code?: string | null
           created_at?: string
           delivered_content?: string | null
           delivery_type?: string
+          discount?: number
           id?: string
           order_no?: number
           product_id?: string | null
