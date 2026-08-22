@@ -1008,6 +1008,112 @@ async function handleMessage(msg: any) {
       await sendMessage(targetId, `💰 An admin added ${money(amount)} to your balance.`);
       return;
     }
+    case "adm_find": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const q = text.trim().replace(/^@/, "");
+      let targetId = Number(q);
+      if (!targetId) {
+        const { data: found } = await db
+          .from("bot_users")
+          .select("telegram_id")
+          .ilike("username", q)
+          .maybeSingle();
+        targetId = Number(found?.telegram_id ?? 0);
+      }
+      if (!targetId) {
+        await say(chatId, "❌ User not found. Send a telegram ID or @username.", ADM_BACK);
+        return;
+      }
+      const v = await admUserView(targetId);
+      await say(chatId, v.text, v.kb);
+      return;
+    }
+    case "adm_addbal_user": {
+      state.awaiting = null;
+      const targetId = Number(state.adm_target);
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const amount = Number(text.replace(/[^0-9.-]/g, ""));
+      const target = await getUser(targetId);
+      if (!amount || !target) {
+        await say(chatId, "❌ Invalid amount or user.", ADM_BACK);
+        return;
+      }
+      await db
+        .from("bot_users")
+        .update({ balance: Number(target.balance) + amount })
+        .eq("telegram_id", targetId);
+      await db
+        .from("transactions")
+        .insert({ telegram_id: targetId, type: "admin", amount, note: "Admin balance adjustment" });
+      await sendMessage(targetId, `💰 An admin updated your balance by ${money(amount)}.`);
+      const v = await admUserView(targetId);
+      await say(chatId, `✅ Done.\n\n${v.text}`, v.kb);
+      return;
+    }
+    case "adm_msg_user": {
+      state.awaiting = null;
+      const targetId = Number(state.adm_target);
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      await sendMessage(targetId, `📩 <b>Message from admin</b>\n\n${escapeHtml(text)}`);
+      await say(chatId, "✅ Message sent.", ADM_BACK);
+      return;
+    }
+    case "adm_deliver": {
+      state.awaiting = null;
+      const orderId = String(state.adm_order ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const { data: o } = await db.from("orders").select("*").eq("id", orderId).maybeSingle();
+      if (!o) {
+        await say(chatId, "❌ Order not found.", ADM_BACK);
+        return;
+      }
+      await db
+        .from("orders")
+        .update({ status: "completed", delivered_content: text })
+        .eq("id", orderId);
+      await sendMessage(
+        o.telegram_id,
+        `📦 <b>Order #${o.order_no} delivered!</b>\n\n<pre>${escapeHtml(text)}</pre>`,
+      );
+      await say(chatId, `✅ Order #${o.order_no} delivered.`, ADM_BACK);
+      return;
+    }
+    case "adm_stock": {
+      state.awaiting = null;
+      const productId = String(state.adm_product ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (!lines.length) {
+        await say(chatId, "❌ No stock lines received.", ADM_BACK);
+        return;
+      }
+      await db.from("stock_items").insert(lines.map((content) => ({ product_id: productId, content })));
+      await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
+      return;
+    }
+    case "adm_code": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const amount = Number(text.replace(/[^0-9.]/g, ""));
+      if (!amount) {
+        await say(chatId, "❌ Send a valid amount, e.g. <code>10</code>", ADM_BACK);
+        return;
+      }
+      const code = "GC" + Math.random().toString(36).slice(2, 10).toUpperCase();
+      await db.from("redeem_codes").insert({ code, amount });
+      await say(chatId, `🎁 New code created:\n\n<code>${code}</code>\nValue: ${money(amount)}`, ADM_BACK);
+      return;
+    }
     default:
       await say(chatId, "Use /start to open the menu.", [[{ text: "🏠 Home", callback_data: "home" }]]);
   }
