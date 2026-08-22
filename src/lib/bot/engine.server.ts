@@ -262,15 +262,132 @@ async function productView(productId: string) {
 
   const available = p.delivery_type === "manual" || stock > 0;
   const kb: Button[][] = [];
-  if (available) kb.push([{ text: "🛒 Buy Now", callback_data: `qty:${p.id}` }]);
+  if (available)
+    kb.push([
+      { text: "🛒 Buy Now", callback_data: `qty:${p.id}` },
+      { text: "➕ Add to Cart", callback_data: `cadd:${p.id}:1` },
+    ]);
   else kb.push([{ text: "❌ Out of stock", callback_data: `p:${p.id}` }]);
   kb.push([
     { text: "🔄 Refresh", callback_data: `p:${p.id}` },
     { text: "⬅️ Back", callback_data: "shop:0" },
   ]);
-  kb.push([{ text: "🏠 Home", callback_data: "home" }]);
+  kb.push([
+    { text: "🧺 Cart", callback_data: "cart" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
   return { text, kb };
 }
+
+/* ------------------------------------------------------------------- cart */
+
+type CartLine = { product_id: string; qty: number };
+
+function readCart(user: any): CartLine[] {
+  const raw = (user?.state ?? {}).cart;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l: any) => l && typeof l.product_id === "string" && Number(l.qty) > 0)
+    .map((l: any) => ({ product_id: l.product_id, qty: Math.min(999, Math.floor(Number(l.qty))) }));
+}
+
+async function writeCart(telegramId: number, cart: CartLine[]) {
+  const { data } = await db
+    .from("bot_users")
+    .select("state")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  const state = (data?.state ?? {}) as any;
+  state.cart = cart;
+  await db.from("bot_users").update({ state }).eq("telegram_id", telegramId);
+}
+
+async function cartDetails(user: any) {
+  const cart = readCart(user);
+  if (!cart.length) return { lines: [] as any[], total: 0 };
+  const { data: products } = await db
+    .from("products")
+    .select("*")
+    .in(
+      "id",
+      cart.map((l) => l.product_id),
+    );
+  const { data: stock } = await db
+    .from("stock_items")
+    .select("product_id")
+    .eq("is_sold", false)
+    .in(
+      "product_id",
+      cart.map((l) => l.product_id),
+    );
+  const counts: Record<string, number> = {};
+  for (const s of stock ?? []) counts[s.product_id] = (counts[s.product_id] ?? 0) + 1;
+
+  const lines = cart
+    .map((l) => {
+      const p = (products ?? []).find((x: any) => x.id === l.product_id);
+      if (!p) return null;
+      return {
+        product: p,
+        qty: l.qty,
+        stock: counts[p.id] ?? 0,
+        subtotal: Number(p.price) * l.qty,
+      };
+    })
+    .filter(Boolean) as any[];
+
+  const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
+  return { lines, total };
+}
+
+async function cartView(user: any) {
+  const { lines, total } = await cartDetails(user);
+  if (!lines.length) {
+    return {
+      text: `<b>Y O U R   C A R T</b>\n\n🧺 Your cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
+      kb: [
+        [{ text: "🛒 SHOP", callback_data: "shop:0" }],
+        [{ text: "🏠 Home", callback_data: "home" }],
+      ] as Button[][],
+    };
+  }
+
+  let text = `<b>Y O U R   C A R T</b>\n──────────────\n`;
+  const kb: Button[][] = [];
+  let issues = 0;
+  for (const l of lines) {
+    const short = l.product.delivery_type === "auto" && l.stock < l.qty;
+    if (short) issues++;
+    text +=
+      `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n` +
+      `   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>` +
+      (short ? `  ⚠️ only ${l.stock} in stock` : "") +
+      `\n`;
+    kb.push([
+      { text: "➖", callback_data: `cdec:${l.product.id}` },
+      { text: `${l.qty}× ${l.product.name}`.slice(0, 30), callback_data: `p:${l.product.id}` },
+      { text: "➕", callback_data: `cinc:${l.product.id}` },
+      { text: "🗑", callback_data: `crm:${l.product.id}` },
+    ]);
+  }
+  text +=
+    `──────────────\n🧾 Total: <b>${money(total)}</b>\n` +
+    `💰 Balance: ${money(user.balance)}\n`;
+  if (Number(user.balance) < total) text += `\n⚠️ Not enough balance — add funds in Wallet.\n`;
+  if (issues) text += `\n⚠️ Some items exceed available stock.\n`;
+
+  kb.push([{ text: `✅ Checkout · ${money(total)}`, callback_data: "cchk" }]);
+  kb.push([
+    { text: "🛒 Continue shopping", callback_data: "shop:0" },
+    { text: "🧹 Clear cart", callback_data: "cclear" },
+  ]);
+  kb.push([
+    { text: "💰 Wallet", callback_data: "wallet" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
+  return { text, kb };
+}
+
 
 async function walletView(user: any) {
   const text =
