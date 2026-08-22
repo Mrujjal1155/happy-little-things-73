@@ -822,12 +822,7 @@ async function handleMessage(msg: any) {
       await say(chatId, "⛔ You are not an admin.");
       return;
     }
-    await say(chatId, await adminStatsText(), [
-      [{ text: "🔄 Refresh", callback_data: "adm:stats" }],
-      [{ text: "📢 Broadcast", callback_data: "adm:broadcast" }],
-      [{ text: "➕ Add Balance", callback_data: "adm:addbal" }],
-      [{ text: "🏠 Home", callback_data: "home" }],
-    ]);
+    await say(chatId, await adminStatsText(), adminKeyboard());
     return;
   }
 
