@@ -67,6 +67,7 @@ function ProductPage() {
   const [txid, setTxid] = useState("");
   const [placed, setPlaced] = useState<number | null>(null);
   const [checkout, setCheckout] = useState(false);
+  const [step, setStep] = useState(1);
 
   const total = Number(product?.price ?? 0) * qty;
   const address = pay?.[METHODS.find((m) => m.id === method)!.key] ?? "";
