@@ -389,7 +389,12 @@ export const registerWebhook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const key = process.env["TELEGRAM_API_KEY"] || process.env["TELEGRAM_BOT_TOKEN"];
-    if (!key) return { ok: false, message: "Telegram credentials are not configured yet." };
+    if (!key)
+      return {
+        ok: false,
+        message:
+          "TELEGRAM_BOT_TOKEN is not configured yet. Add the bot token from @BotFather before connecting the webhook.",
+      };
     const { setWebhook, getWebhookInfo } = await import("@/lib/telegram.server");
     const { createHash } = await import("crypto");
     const deriveTelegramWebhookSecret = (k: string) =>
@@ -399,7 +404,11 @@ export const registerWebhook = createServerFn({ method: "POST" })
     const info = await getWebhookInfo();
     return {
       ok: Boolean(res.ok),
-      message: res.ok ? `Webhook registered: ${url}` : (res.description ?? "Failed"),
+      message: res.ok
+        ? `Webhook registered: ${url}`
+        : res.description?.toLowerCase().includes("unauthorized")
+          ? "Telegram rejected the bot token (Unauthorized). Update TELEGRAM_BOT_TOKEN with a fresh token from @BotFather and try again."
+          : (res.description ?? "Webhook registration failed. Please try again."),
       info: info.result ?? null,
     };
   });
