@@ -50,7 +50,7 @@ export async function getDepositAddress(network: string) {
 
 export type MatchResult =
   | { ok: true; txId: string; amount: number }
-  | { ok: false; error?: string; pending: true };
+  | { ok: false; error?: string | undefined; pending: true };
 
 /** Look for a matching on-chain USDT deposit of `expected` amount. */
 export async function findCryptoDeposit(expected: number, network: string | null, isUsed: (tx: string) => Promise<boolean>): Promise<MatchResult> {
