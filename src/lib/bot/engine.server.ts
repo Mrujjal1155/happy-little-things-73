@@ -559,15 +559,17 @@ async function verifyBinanceDeposit(chatId: number, id: string) {
   if (!result.ok) {
     return {
       message:
-        `⏳ Payment not found yet.\n\n` +
-        `Make sure you sent exactly <b>${expected.toFixed(4)} USDT</b>. On-chain deposits can take a few minutes — tap verify again.` +
-        (result.error ? `\n\n<i>${escapeHtml(result.error)}</i>` : ""),
+        `⏳ Payment not confirmed yet.\n\n` +
+        `Make sure you sent exactly <b>${expected.toFixed(4)} USDT</b>. Payments can take a few minutes.\n\n` +
+        `👉 Fastest way: tap <b>Submit transaction ID</b> and send your TXID — we will confirm it manually within minutes.`,
       keyboard: [
+        [{ text: "🧾 Submit transaction ID", callback_data: `btx:${id}` }],
         [{ text: "🔄 Verify again", callback_data: `bchk:${id}` }],
         [{ text: "⬅️ Wallet", callback_data: "wallet" }],
       ] as Button[][],
     };
   }
+
 
   const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: result.txId });
   if (usedErr) return { message: "⏳ Payment not found yet. Please try again." };
