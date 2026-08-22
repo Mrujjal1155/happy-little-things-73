@@ -730,10 +730,50 @@ async function handleMessage(msg: any) {
   }
 
   // shortcut commands
-  if (/^\/(shop|wallet|orders|profile|support|cart|checkout)\b/.test(text)) {
+  if (
+    /^\/(menu|home|shop|wallet|orders|profile|support|cart|checkout|freebies|referral|emails|api|redeem|deposit|help|commands)\b/.test(
+      text,
+    )
+  ) {
     const cmd = text.slice(1).split(/[\s@]/)[0];
     const fresh = await getUser(chatId);
-    if (cmd === "shop") {
+    const homeBtn: Button[][] = [[{ text: "🏠 Home", callback_data: "home" }]];
+    const pageKeys: Record<string, string> = {
+      freebies: "freebies_text",
+      emails: "emails_trials_text",
+      api: "reseller_api_text",
+    };
+    if (cmd === "menu" || cmd === "home") {
+      await say(chatId, await homeText(fresh), homeKeyboard());
+    } else if (cmd === "help" || cmd === "commands") {
+      await say(
+        chatId,
+        `<b>C O M M A N D S</b>\n\n` +
+          COMMAND_LIST.map((c) => `/${c.command} — ${c.description}`).join("\n"),
+        homeKeyboard(),
+      );
+    } else if (pageKeys[cmd]) {
+      const s = await getSettings();
+      await say(chatId, s[pageKeys[cmd]] || "Coming soon.", homeBtn);
+    } else if (cmd === "referral") {
+      const s = await getSettings();
+      await say(
+        chatId,
+        `<b>R E F E R R A L   S T O R E</b>\n\n` +
+          `Earn <b>${s["referral_percent"] || 0}%</b> of everything your referrals spend.\n\n` +
+          `🎟 Referrals: ${fresh.referral_count}\n` +
+          `💸 Earnings: ${money(fresh.referral_earnings)}\n\n` +
+          `🔗 <code>https://t.me/${s["bot_username"] || "your_bot"}?start=ref_${fresh.ref_code}</code>`,
+        homeBtn,
+      );
+    } else if (cmd === "redeem") {
+      await setState(chatId, { ...(fresh.state ?? {}), awaiting: "redeem" });
+      await say(chatId, "🎟 Send your redeem code now.", [[{ text: "⬅️ Back", callback_data: "wallet" }]]);
+    } else if (cmd === "deposit") {
+      const v = await walletView(fresh);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "shop") {
+
       const v = await shopView(0);
       await say(chatId, v.text, v.kb);
     } else if (cmd === "wallet") {
