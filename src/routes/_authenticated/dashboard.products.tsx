@@ -79,7 +79,7 @@ function ProductsPage() {
     mutationFn: () =>
       saveProd({
         data: {
-          id: form.id,
+          ...(form.id ? { id: form.id } : {}),
           name: form.name,
           emoji: form.emoji,
           description: form.description,
