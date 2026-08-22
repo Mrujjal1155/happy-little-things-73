@@ -5,8 +5,10 @@ import {
   deleteMessage,
   editMessage,
   sendMessage,
+  COMMAND_LIST,
   type Button,
 } from "@/lib/telegram.server";
+
 
 const db = supabaseAdmin as any;
 
