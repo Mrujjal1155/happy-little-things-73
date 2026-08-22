@@ -148,8 +148,8 @@ export function BinanceSetupCard({
 
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           <b>Note:</b> Deposit addresses for crypto (TRC20, BEP20) are fetched and verified automatically using
-          your API keys. You do not need to enter any wallet address here. API keys are stored as encrypted
-          secrets (BINANCE_API_KEY / BINANCE_API_SECRET), never in the database.
+          your API keys. You do not need to enter any wallet address here. Keys are verified with Binance before
+          saving and are only readable by the server — never sent back to this page.
         </div>
 
         <div className="space-y-2">
