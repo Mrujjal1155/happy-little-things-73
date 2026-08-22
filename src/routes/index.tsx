@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle, ShoppingBag, Sparkles } from "lucide-react";
+import { Headphones, MessageCircle, ShieldCheck, ShoppingBag, Sparkles, Zap } from "lucide-react";
 import { listStorefront } from "@/lib/shop.functions";
 import { StoreShell } from "@/components/StoreShell";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/qorix-logo.png";
+import hero3d from "@/assets/hero-3d.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,35 +39,67 @@ function Landing() {
   return (
     <StoreShell>
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative isolate overflow-hidden border-b border-border">
+        <img
+          src={hero3d}
+          alt=""
+          aria-hidden
+          width={1920}
+          height={1088}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70 dark:opacity-90"
+        />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(55% 55% at 50% 0%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 70%)",
+              "radial-gradient(65% 60% at 50% 10%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, var(--background) 45%, transparent), var(--background))",
           }}
         />
-        <div className="relative mx-auto max-w-4xl px-4 pb-20 pt-20 text-center">
-          <img src={logo} alt="QORIX Store" className="mx-auto h-20 w-20 rounded-2xl object-cover" />
-          <h1 className="mt-8 text-5xl font-extrabold tracking-tight text-primary sm:text-7xl">QORIX Store</h1>
-          <p className="mt-5 text-lg text-muted-foreground">
-            AI Tools, VPN, Creative Apps &amp; more — at the best price
+        <div className="relative mx-auto max-w-5xl px-4 pb-24 pt-24 text-center tilt-in">
+          <div className="float-3d mx-auto w-fit">
+            <img
+              src={logo}
+              alt="QORIX Store"
+              className="h-24 w-24 rounded-3xl object-cover shadow-2xl shadow-primary/40 ring-1 ring-primary/30"
+            />
+          </div>
+          <p className="mt-7 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
+            <Sparkles className="h-3.5 w-3.5" /> Instant digital delivery
+          </p>
+          <h1 className="mt-5 text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl">
+            <span className="bg-gradient-to-b from-foreground to-primary bg-clip-text text-transparent">QORIX Store</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
+            AI Tools, VPN, Creative Apps &amp; more — at the best price, delivered in seconds.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3">
-            <Button asChild size="lg" className="rounded-full px-7 shadow-lg shadow-primary/25">
+            <Button asChild size="lg" className="rounded-full px-7 shadow-lg shadow-primary/30">
               <Link to="/store">
                 <ShoppingBag className="h-4 w-4" /> Browse Products
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-full px-7">
+            <Button asChild size="lg" variant="outline" className="rounded-full px-7 glass-panel">
               <Link to="/track">
                 <MessageCircle className="h-4 w-4" /> Track Order
               </Link>
             </Button>
           </div>
+          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-3">
+            {[
+              { icon: Zap, label: "Instant Delivery" },
+              { icon: ShieldCheck, label: "Secure Crypto Pay" },
+              { icon: Headphones, label: "24/7 Support" },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="glass-panel rounded-2xl px-3 py-4">
+                <Icon className="mx-auto h-5 w-5 text-primary" />
+                <p className="mt-2 text-xs font-medium sm:text-sm">{label}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
+
 
       {/* Categories */}
       {categories.length > 0 && (
