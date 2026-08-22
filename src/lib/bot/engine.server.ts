@@ -1096,6 +1096,268 @@ async function doCheckout(chatId: number) {
   await say(chatId, text, kb);
 }
 
+/* --------------------------------------------- direct checkout (pay per order) */
+
+type Coupon = { code: string; percent: number; amount_off: number };
+type CoMeta = { items: CartLine[]; coupon?: Coupon | null; summary?: string; total?: number };
+
+async function coTotals(meta: CoMeta) {
+  const ids = meta.items.map((i) => i.product_id);
+  const { data: products } = await db.from("products").select("*").in("id", ids);
+  const lines = meta.items
+    .map((i) => {
+      const p = (products ?? []).find((x: any) => x.id === i.product_id);
+      return p ? { product: p, qty: i.qty, subtotal: Number(p.price) * i.qty } : null;
+    })
+    .filter(Boolean) as any[];
+  const subtotal = Math.round(lines.reduce((s, l) => s + l.subtotal, 0) * 100) / 100;
+  const c = meta.coupon;
+  let discount = c ? (subtotal * Number(c.percent || 0)) / 100 + Number(c.amount_off || 0) : 0;
+  discount = Math.max(0, Math.min(subtotal, Math.round(discount * 100) / 100));
+  const total = Math.round((subtotal - discount) * 100) / 100;
+  return { lines, subtotal, discount, total };
+}
+
+async function readCo(chatId: number): Promise<CoMeta | null> {
+  const u = await getUser(chatId);
+  const co = (u?.state ?? {}).co;
+  return co && Array.isArray(co.items) && co.items.length ? (co as CoMeta) : null;
+}
+
+async function writeCo(chatId: number, meta: CoMeta | null) {
+  const { data } = await db.from("bot_users").select("state").eq("telegram_id", chatId).maybeSingle();
+  const state = (data?.state ?? {}) as any;
+  if (meta) state.co = meta;
+  else delete state.co;
+  await db.from("bot_users").update({ state }).eq("telegram_id", chatId);
+}
+
+async function coView(chatId: number) {
+  const meta = await readCo(chatId);
+  if (!meta) {
+    return {
+      text: "🧺 Nothing to check out.",
+      kb: [[{ text: "🛒 SHOP", callback_data: "shop:0" }], [{ text: "🏠 Home", callback_data: "home" }]] as Button[][],
+    };
+  }
+  const { lines, subtotal, discount, total } = await coTotals(meta);
+  let text = `<b>C H E C K O U T</b>\n──────────────\n`;
+  for (const l of lines) {
+    text += `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
+  }
+  text += `──────────────\n🧾 Subtotal: ${money(subtotal)}\n`;
+  if (meta.coupon) text += `🏷 Coupon <code>${escapeHtml(meta.coupon.code)}</code>: −${money(discount)}\n`;
+  text += `💵 <b>Total to pay: ${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
+
+  const kb: Button[][] = [];
+  kb.push([
+    meta.coupon
+      ? { text: "🗑 Remove coupon", callback_data: "cocrm" }
+      : { text: "🏷 Apply coupon", callback_data: "cocpn" },
+  ]);
+  kb.push([{ text: `💳 Pay now · ${money(total)}`, callback_data: "copay" }]);
+  kb.push([
+    { text: "🛒 SHOP", callback_data: "shop:0" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
+  return { text, kb };
+}
+
+async function coPayView(chatId: number) {
+  const meta = await readCo(chatId);
+  if (!meta) return await coView(chatId);
+  const { total } = await coTotals(meta);
+  const cfg = await binanceConfig();
+  const user = await getUser(chatId);
+  const kb: Button[][] = [];
+  if (Number(user.balance) >= total && total > 0)
+    kb.push([{ text: `💰 Pay with balance (${money(user.balance)})`, callback_data: "copm:balance" }]);
+  if (cfg.active && cfg.payid) kb.push([{ text: "🪙 Binance Pay ID", callback_data: "copm:payid" }]);
+  if (cfg.active && cfg.crypto) {
+    kb.push([{ text: "💵 USDT BEP-20 (BSC)", callback_data: "copm:BSC" }]);
+    kb.push([{ text: "💵 USDT TRC-20 (Tron)", callback_data: "copm:TRX" }]);
+  }
+  kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
+  return {
+    text: `<b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+    kb,
+  };
+}
+
+/** Create the paid orders, deliver instantly or notify the admin for manual delivery. */
+async function fulfillCheckout(chatId: number, meta: CoMeta, methodKey: string, reference: string) {
+  const { lines, discount, total } = await coTotals(meta);
+  let user = await getUser(chatId);
+
+  // charge the order total from balance (payments are credited before fulfilment)
+  await db
+    .from("bot_users")
+    .update({
+      balance: Math.round((Number(user.balance) - total) * 100) / 100,
+      total_spent: Number(user.total_spent) + total,
+      membership: membershipFor(Number(user.total_spent) + total),
+    })
+    .eq("telegram_id", chatId);
+  await db.from("transactions").insert({
+    telegram_id: chatId,
+    type: "purchase",
+    amount: -total,
+    method: methodKey,
+    reference,
+    note: meta.summary ?? lines.map((l) => `${l.qty}x ${l.product.name}`).join(", "),
+  });
+
+  const share = lines.length ? discount / lines.length : 0;
+  let text = `<b>O R D E R   C O N F I R M E D</b>\n──────────────\n💳 Paid: <b>${money(total)}</b>\n`;
+  let deliveries = "";
+  let pending = 0;
+
+  for (const l of lines) {
+    const p = l.product;
+    let delivered: string | null = null;
+    let status = "pending";
+    if (p.delivery_type === "auto") {
+      const { data: items } = await db
+        .from("stock_items")
+        .select("*")
+        .eq("product_id", p.id)
+        .eq("is_sold", false)
+        .order("created_at", { ascending: true })
+        .limit(l.qty);
+      if (items && items.length >= l.qty) {
+        await db
+          .from("stock_items")
+          .update({ is_sold: true, sold_to: chatId, sold_at: new Date().toISOString() })
+          .in("id", items.map((i: any) => i.id));
+        delivered = items.map((i: any) => i.content).join("\n");
+        status = "completed";
+      }
+    }
+
+    const { data: order } = await db
+      .from("orders")
+      .insert({
+        telegram_id: chatId,
+        product_id: p.id,
+        product_name: p.name,
+        quantity: l.qty,
+        unit_price: p.price,
+        total: Math.max(0, Math.round((l.subtotal - share) * 100) / 100),
+        status,
+        delivery_type: p.delivery_type,
+        delivered_content: delivered,
+        coupon_code: meta.coupon?.code ?? null,
+        discount: Math.round(share * 100) / 100,
+      })
+      .select("*")
+      .maybeSingle();
+
+    text += `• #${order?.order_no} — ${l.qty}× ${p.name}${status === "completed" ? " ✅" : " ⏳ manual"}\n`;
+    if (delivered) deliveries += `\n<b>${p.name}</b>\n<pre>${escapeHtml(delivered)}</pre>`;
+    if (status !== "completed") {
+      pending++;
+      await notifyAdmins(
+        `🕐 <b>Manual delivery needed — order #${order?.order_no}</b>\nUser: <code>${chatId}</code>\n${l.qty}× ${p.name}\nPaid via: ${methodKey}\nRef: <code>${escapeHtml(reference)}</code>`,
+      );
+    }
+    await announcePurchase(user, p, l.qty);
+  }
+
+  // referral commission on the paid total
+  user = await getUser(chatId);
+  if (user?.referred_by) {
+    const s = await getSettings();
+    const pct = Number(s["referral_percent"] || 0);
+    const commission = Number(((total * pct) / 100).toFixed(2));
+    if (commission > 0) {
+      const { data: ref } = await db
+        .from("bot_users")
+        .select("balance,referral_earnings")
+        .eq("telegram_id", user.referred_by)
+        .maybeSingle();
+      if (ref) {
+        await db
+          .from("bot_users")
+          .update({
+            balance: Number(ref.balance) + commission,
+            referral_earnings: Number(ref.referral_earnings) + commission,
+          })
+          .eq("telegram_id", user.referred_by);
+        await db.from("transactions").insert({
+          telegram_id: user.referred_by,
+          type: "referral",
+          amount: commission,
+          note: `Referral commission from ${maskUsername(user.username, user.first_name)}`,
+        });
+      }
+    }
+  }
+
+  if (meta.coupon) {
+    const { data: c } = await db.from("coupons").select("id,used_count").eq("code", meta.coupon.code).maybeSingle();
+    if (c) await db.from("coupons").update({ used_count: Number(c.used_count) + 1 }).eq("id", c.id);
+  }
+
+  await writeCo(chatId, null);
+  await writeCart(chatId, []);
+
+  if (deliveries) text += `\n🎁 <b>Your items</b>${deliveries}\n`;
+  if (pending)
+    text +=
+      `\n⏳ <b>${pending} item(s) need manual delivery.</b>\n` +
+      `Our admin has been notified and will deliver here shortly. Please wait — you can check progress with /orders.\n`;
+
+  const kb: Button[][] = [
+    [{ text: "📦 My Orders", callback_data: "orders" }],
+    [
+      { text: "🛒 SHOP", callback_data: "shop:0" },
+      { text: "🏠 Home", callback_data: "home" },
+    ],
+  ];
+  return { text, kb };
+}
+
+/** Start a checkout for a single product or the whole cart. */
+async function startCheckout(chatId: number, items: CartLine[]) {
+  if (!items.length) return null;
+  const meta: CoMeta = { items, coupon: null };
+  const { lines, total } = await coTotals(meta);
+  if (!lines.length) return null;
+  meta.summary = lines.map((l) => `${l.qty}x ${l.product.name}`).join(", ");
+  meta.total = total;
+  await writeCo(chatId, meta);
+  return await coView(chatId);
+}
+
+async function ordersView(chatId: number) {
+  const { data: rows } = await db
+    .from("orders")
+    .select("*")
+    .eq("telegram_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const text = !rows?.length
+    ? `<b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
+    : `<b>M Y   O R D E R S</b>\n──────────────\n` +
+      rows
+        .map(
+          (o: any) =>
+            `${o.status === "completed" ? "✅" : o.status === "cancelled" ? "❌" : "⏳"} #${o.order_no} — ${o.quantity}× ${o.product_name} · ${money(o.total)}` +
+            (o.status === "pending" ? `\n   <i>waiting for manual delivery</i>` : ""),
+        )
+        .join("\n");
+  return {
+    text,
+    kb: [
+      [{ text: "🔄 Refresh", callback_data: "orders" }],
+      [
+        { text: "🛒 SHOP", callback_data: "shop:0" },
+        { text: "🏠 Home", callback_data: "home" },
+      ],
+    ] as Button[][],
+  };
+}
+
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
