@@ -395,7 +395,22 @@ async function cartView(user: any) {
 }
 
 
+/** Binance gateway configuration coming from the admin dashboard. */
+export async function binanceConfig() {
+  const s = await getSettings();
+  const on = (k: string, def = true) => (s[k] === undefined || s[k] === "" ? def : s[k] === "1" || s[k] === "true");
+  return {
+    active: (s["binance_status"] ?? "active") !== "inactive",
+    live: (s["binance_mode"] ?? "live") !== "personal",
+    payid: on("binance_enable_payid"),
+    crypto: on("binance_enable_crypto"),
+    rate: Number(s["dollar_rate"] || 0) || 0,
+    payAddress: s["binance_pay"] ?? "",
+  };
+}
+
 async function walletView(user: any) {
+  const cfg = await binanceConfig();
   const text =
     `<b>W A L L E T</b>\n\n` +
     `Your Balance and Spending Stats are:\n──────────────\n` +
@@ -404,17 +419,18 @@ async function walletView(user: any) {
     `🏅 Membership: ${user.membership}\n` +
     `──────────────\n\n` +
     `<i>Choose a payment method below to add funds to your wallet.</i>`;
-  const kb: Button[][] = [
-    [{ text: "🪙 Binance Pay (auto)", callback_data: "dep:binance" }],
-    [{ text: "💵 USDT crypto (auto)", callback_data: "dep:usdt" }],
-    [
-      { text: "📱 bKash", callback_data: "dep:bkash" },
-      { text: "📲 Nagad", callback_data: "dep:nagad" },
-    ],
-    [{ text: "🎟 Redeem Code", callback_data: "redeem" }],
-    [{ text: "🧾 Transaction History", callback_data: "hist:0" }],
-    [{ text: "🏠 Home", callback_data: "home" }],
-  ];
+  const kb: Button[][] = [];
+  if (cfg.active && cfg.payid)
+    kb.push([{ text: `🪙 Binance Pay ${cfg.live ? "(auto)" : "(manual)"}`, callback_data: "dep:binance" }]);
+  if (cfg.active && cfg.crypto && cfg.live)
+    kb.push([{ text: "💵 USDT crypto (auto)", callback_data: "dep:usdt" }]);
+  kb.push([
+    { text: "📱 bKash", callback_data: "dep:bkash" },
+    { text: "📲 Nagad", callback_data: "dep:nagad" },
+  ]);
+  kb.push([{ text: "🎟 Redeem Code", callback_data: "redeem" }]);
+  kb.push([{ text: "🧾 Transaction History", callback_data: "hist:0" }]);
+  kb.push([{ text: "🏠 Home", callback_data: "home" }]);
   return { text, kb };
 }
 
