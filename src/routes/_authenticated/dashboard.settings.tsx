@@ -30,6 +30,7 @@ const FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "bot_name", label: "Bot name" },
   { key: "welcome_text", label: "Welcome text", long: true },
   { key: "usdt_bep20", label: "USDT BEP-20 address" },
+  { key: "usdt_trc20", label: "USDT TRC-20 address" },
   { key: "bkash_number", label: "bKash number" },
   { key: "nagad_number", label: "Nagad number" },
   { key: "announce_chat_id", label: "Announcement channel/group ID" },
