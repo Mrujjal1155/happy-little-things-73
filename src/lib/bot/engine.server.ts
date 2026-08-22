@@ -1100,6 +1100,42 @@ async function handleCallback(cq: any) {
     return;
   }
 
+  if (data === "dep:binance") {
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_amount", bin_kind: "payid" });
+    await edit(
+      "🪙 <b>Binance Pay deposit</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.",
+      [[{ text: "⬅️ Back", callback_data: "wallet" }]],
+    );
+    return;
+  }
+
+  if (data === "dep:usdt") {
+    await edit("💵 <b>USDT deposit</b>\n\nChoose the network you will send from:", [
+      [{ text: "BEP-20 (BSC)", callback_data: "bnet:BSC" }],
+      [{ text: "TRC-20 (Tron)", callback_data: "bnet:TRX" }],
+      [{ text: "⬅️ Back", callback_data: "wallet" }],
+    ]);
+    return;
+  }
+
+  if (data.startsWith("bnet:")) {
+    const network = data.slice(5);
+    if (!NETWORKS[network]) return;
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_amount", bin_kind: "crypto", bin_network: network });
+    await edit(
+      `💵 <b>${NETWORKS[network]}</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.`,
+      [[{ text: "⬅️ Back", callback_data: "dep:usdt" }]],
+    );
+    return;
+  }
+
+  if (data.startsWith("bchk:")) {
+    const id = data.slice(5);
+    const r = await verifyBinanceDeposit(chatId, id);
+    await edit(r.message, r.keyboard ?? [[{ text: "⬅️ Wallet", callback_data: "wallet" }]]);
+    return;
+  }
+
   if (data.startsWith("dep:")) {
     const method = data.slice(4);
     const info = DEPOSIT_LABEL[method];
@@ -1113,6 +1149,7 @@ async function handleCallback(cq: any) {
     );
     return;
   }
+
 
   if (data === "redeem") {
     await setState(chatId, { ...(user.state ?? {}), awaiting: "redeem" });
