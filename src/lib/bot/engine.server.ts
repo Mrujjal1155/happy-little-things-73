@@ -975,9 +975,40 @@ async function handleMessage(msg: any) {
         await say(chatId, "❌ Invalid quantity.");
         return;
       }
-      await doBuy(chatId, state.product_id, qty);
+      const view = await startCheckout(chatId, [{ product_id: state.product_id, qty }]);
+      if (view) await say(chatId, view.text, view.kb);
       return;
     }
+    case "coupon": {
+      const code = text.trim().toUpperCase();
+      state.awaiting = null;
+      await setState(chatId, state);
+      const meta = await readCo(chatId);
+      if (!meta) {
+        await say(chatId, "🧺 Nothing to check out.", [[{ text: "🛒 SHOP", callback_data: "shop:0" }]]);
+        return;
+      }
+      const { data: c } = await db
+        .from("coupons")
+        .select("*")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+      const expired = c?.expires_at && new Date(c.expires_at).getTime() < Date.now();
+      const exhausted = c && Number(c.max_uses) > 0 && Number(c.used_count) >= Number(c.max_uses);
+      if (!c || expired || exhausted) {
+        await say(chatId, "❌ Invalid, expired or already used coupon code.", [
+          [{ text: "⬅️ Back to checkout", callback_data: "co" }],
+        ]);
+        return;
+      }
+      meta.coupon = { code: c.code, percent: Number(c.percent), amount_off: Number(c.amount_off) };
+      await writeCo(chatId, meta);
+      const view = await coView(chatId);
+      await say(chatId, `✅ Coupon <code>${escapeHtml(c.code)}</code> applied!\n\n${view.text}`, view.kb);
+      return;
+    }
+
     case "broadcast": {
       state.awaiting = null;
       await setState(chatId, state);
