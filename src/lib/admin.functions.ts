@@ -461,3 +461,15 @@ export const checkBotToken = createServerFn({ method: "GET" })
       };
     }
   });
+
+export const checkBinanceStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    try {
+      const { checkBinanceKeys } = await import("@/lib/binance.server");
+      return await checkBinanceKeys();
+    } catch (e) {
+      return { ok: false as const, message: e instanceof Error ? e.message : "Could not reach Binance." };
+    }
+  });
