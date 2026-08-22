@@ -69,18 +69,20 @@ async function say(chatId: number, text: string, kb?: Button[][]) {
   return res;
 }
 
+function adminIds(s: Record<string, string>) {
+  return `${s["admin_telegram_ids"] || ""},${s["admin_ids"] || ""}`
+    .split(/[,\s]+/)
+    .filter(Boolean);
+}
+
 async function isAdmin(telegramId: number, settings?: Record<string, string>) {
   const s = settings ?? (await getSettings());
-  return (s["admin_telegram_ids"] || "")
-    .split(/[,\s]+/)
-    .filter(Boolean)
-    .includes(String(telegramId));
+  return adminIds(s).includes(String(telegramId));
 }
 
 async function notifyAdmins(text: string) {
   const s = await getSettings();
-  const ids = (s["admin_telegram_ids"] || "").split(/[,\s]+/).filter(Boolean);
-  for (const id of ids) await sendMessage(id, text);
+  for (const id of adminIds(s)) await sendMessage(id, text);
 }
 
 /* ------------------------------------------------------------------- user */
@@ -820,12 +822,7 @@ async function handleMessage(msg: any) {
       await say(chatId, "⛔ You are not an admin.");
       return;
     }
-    await say(chatId, await adminStatsText(), [
-      [{ text: "🔄 Refresh", callback_data: "adm:stats" }],
-      [{ text: "📢 Broadcast", callback_data: "adm:broadcast" }],
-      [{ text: "➕ Add Balance", callback_data: "adm:addbal" }],
-      [{ text: "🏠 Home", callback_data: "home" }],
-    ]);
+    await say(chatId, await adminStatsText(), adminKeyboard());
     return;
   }
 
@@ -1011,6 +1008,112 @@ async function handleMessage(msg: any) {
       await sendMessage(targetId, `💰 An admin added ${money(amount)} to your balance.`);
       return;
     }
+    case "adm_find": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const q = text.trim().replace(/^@/, "");
+      let targetId = Number(q);
+      if (!targetId) {
+        const { data: found } = await db
+          .from("bot_users")
+          .select("telegram_id")
+          .ilike("username", q)
+          .maybeSingle();
+        targetId = Number(found?.telegram_id ?? 0);
+      }
+      if (!targetId) {
+        await say(chatId, "❌ User not found. Send a telegram ID or @username.", ADM_BACK);
+        return;
+      }
+      const v = await admUserView(targetId);
+      await say(chatId, v.text, v.kb);
+      return;
+    }
+    case "adm_addbal_user": {
+      state.awaiting = null;
+      const targetId = Number(state.adm_target);
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const amount = Number(text.replace(/[^0-9.-]/g, ""));
+      const target = await getUser(targetId);
+      if (!amount || !target) {
+        await say(chatId, "❌ Invalid amount or user.", ADM_BACK);
+        return;
+      }
+      await db
+        .from("bot_users")
+        .update({ balance: Number(target.balance) + amount })
+        .eq("telegram_id", targetId);
+      await db
+        .from("transactions")
+        .insert({ telegram_id: targetId, type: "admin", amount, note: "Admin balance adjustment" });
+      await sendMessage(targetId, `💰 An admin updated your balance by ${money(amount)}.`);
+      const v = await admUserView(targetId);
+      await say(chatId, `✅ Done.\n\n${v.text}`, v.kb);
+      return;
+    }
+    case "adm_msg_user": {
+      state.awaiting = null;
+      const targetId = Number(state.adm_target);
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      await sendMessage(targetId, `📩 <b>Message from admin</b>\n\n${escapeHtml(text)}`);
+      await say(chatId, "✅ Message sent.", ADM_BACK);
+      return;
+    }
+    case "adm_deliver": {
+      state.awaiting = null;
+      const orderId = String(state.adm_order ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const { data: o } = await db.from("orders").select("*").eq("id", orderId).maybeSingle();
+      if (!o) {
+        await say(chatId, "❌ Order not found.", ADM_BACK);
+        return;
+      }
+      await db
+        .from("orders")
+        .update({ status: "completed", delivered_content: text })
+        .eq("id", orderId);
+      await sendMessage(
+        o.telegram_id,
+        `📦 <b>Order #${o.order_no} delivered!</b>\n\n<pre>${escapeHtml(text)}</pre>`,
+      );
+      await say(chatId, `✅ Order #${o.order_no} delivered.`, ADM_BACK);
+      return;
+    }
+    case "adm_stock": {
+      state.awaiting = null;
+      const productId = String(state.adm_product ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (!lines.length) {
+        await say(chatId, "❌ No stock lines received.", ADM_BACK);
+        return;
+      }
+      await db.from("stock_items").insert(lines.map((content) => ({ product_id: productId, content })));
+      await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
+      return;
+    }
+    case "adm_code": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const amount = Number(text.replace(/[^0-9.]/g, ""));
+      if (!amount) {
+        await say(chatId, "❌ Send a valid amount, e.g. <code>10</code>", ADM_BACK);
+        return;
+      }
+      const code = "GC" + Math.random().toString(36).slice(2, 10).toUpperCase();
+      await db.from("redeem_codes").insert({ code, amount });
+      await say(chatId, `🎁 New code created:\n\n<code>${code}</code>\nValue: ${money(amount)}`, ADM_BACK);
+      return;
+    }
     default:
       await say(chatId, "Use /start to open the menu.", [[{ text: "🏠 Home", callback_data: "home" }]]);
   }
@@ -1032,6 +1135,169 @@ async function adminStatsText() {
     `💳 Pending payments: ${pay.count ?? 0}`
   );
 }
+
+export function adminKeyboard(): Button[][] {
+  return [
+    [
+      { text: "🔄 Refresh", callback_data: "adm:stats" },
+      { text: "⏳ Pending orders", callback_data: "adm:orders" },
+    ],
+    [
+      { text: "💳 Payments", callback_data: "adm:pays" },
+      { text: "👤 Find user", callback_data: "adm:user" },
+    ],
+    [
+      { text: "📦 Add stock", callback_data: "adm:stock" },
+      { text: "🎁 New code", callback_data: "adm:code" },
+    ],
+    [
+      { text: "📢 Broadcast", callback_data: "adm:broadcast" },
+      { text: "➕ Add balance", callback_data: "adm:addbal" },
+    ],
+    [{ text: "🏠 Home", callback_data: "home" }],
+  ];
+}
+
+const ADM_BACK: Button[][] = [[{ text: "⬅️ Admin panel", callback_data: "adm:stats" }]];
+
+async function admOrdersView() {
+  const { data } = await db
+    .from("orders")
+    .select("id,order_no,telegram_id,product_name,quantity,total,delivery_type")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (!data?.length) return { text: "✅ No pending orders.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((o: any) => [
+    { text: `#${o.order_no} · ${o.product_name} x${o.quantity}`, callback_data: `adm:o:${o.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `⏳ <b>Pending orders</b> (${data.length})\nTap one to deliver or cancel.`, kb };
+}
+
+async function admOrderView(id: string) {
+  const { data: o } = await db.from("orders").select("*").eq("id", id).maybeSingle();
+  if (!o) return { text: "Order not found.", kb: ADM_BACK };
+  const text =
+    `🧾 <b>Order #${o.order_no}</b>\n\n` +
+    `Product: ${escapeHtml(o.product_name)} x${o.quantity}\n` +
+    `Total: ${money(o.total)}\n` +
+    `Buyer: <code>${o.telegram_id}</code>\n` +
+    `Status: ${o.status} · ${o.delivery_type}`;
+  return {
+    text,
+    kb: [
+      [{ text: "🚚 Deliver now", callback_data: `adm:od:${o.id}` }],
+      [{ text: "❌ Cancel & refund", callback_data: `adm:oc:${o.id}` }],
+      [{ text: "⬅️ Back", callback_data: "adm:orders" }],
+    ] as Button[][],
+  };
+}
+
+async function admPaymentsView() {
+  const { data } = await db
+    .from("payment_requests")
+    .select("id,telegram_id,method,amount")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (!data?.length) return { text: "✅ No pending payment requests.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${money(p.amount)} · ${p.method} · ${p.telegram_id}`, callback_data: `adm:pay:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `💳 <b>Pending payments</b> (${data.length})`, kb };
+}
+
+async function admPaymentView(id: string) {
+  const { data: p } = await db.from("payment_requests").select("*").eq("id", id).maybeSingle();
+  if (!p) return { text: "Payment not found.", kb: ADM_BACK };
+  return {
+    text:
+      `💳 <b>Deposit request</b>\n\n` +
+      `User: <code>${p.telegram_id}</code>\n` +
+      `Method: ${escapeHtml(p.method)}\n` +
+      `Amount: ${money(p.amount)}\n` +
+      `TXID: <code>${escapeHtml(p.txid ?? "-")}</code>\n` +
+      `Status: ${p.status}`,
+    kb: [
+      [
+        { text: "✅ Approve", callback_data: `adm:pa:${p.id}` },
+        { text: "❌ Reject", callback_data: `adm:pr:${p.id}` },
+      ],
+      [{ text: "⬅️ Back", callback_data: "adm:pays" }],
+    ] as Button[][],
+  };
+}
+
+async function admDecidePayment(id: string, approve: boolean) {
+  const { data: p } = await db.from("payment_requests").select("*").eq("id", id).maybeSingle();
+  if (!p || p.status !== "pending") return "Already handled.";
+  await db
+    .from("payment_requests")
+    .update({ status: approve ? "approved" : "rejected" })
+    .eq("id", id);
+  if (!approve) {
+    await sendMessage(p.telegram_id, "❌ Your deposit request was rejected. Contact support if this is wrong.");
+    return "Rejected.";
+  }
+  const u = await getUser(p.telegram_id);
+  await db
+    .from("bot_users")
+    .update({ balance: Number(u?.balance ?? 0) + Number(p.amount) })
+    .eq("telegram_id", p.telegram_id);
+  await db.from("transactions").insert({
+    telegram_id: p.telegram_id,
+    type: "deposit",
+    amount: p.amount,
+    method: p.method,
+    reference: p.txid,
+  });
+  await sendMessage(p.telegram_id, `✅ Deposit approved! ${money(p.amount)} added to your balance.`);
+  return "Approved and balance credited.";
+}
+
+async function admUserView(targetId: number) {
+  const u = await getUser(targetId);
+  if (!u) return { text: "❌ User not found.", kb: ADM_BACK };
+  const { count } = await db
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("telegram_id", targetId);
+  return {
+    text:
+      `👤 <b>${escapeHtml(u.username ? "@" + u.username : (u.first_name ?? "User"))}</b>\n\n` +
+      `ID: <code>${u.telegram_id}</code>\n` +
+      `Balance: ${money(u.balance)}\n` +
+      `Spent: ${money(u.total_spent)}\n` +
+      `Orders: ${count ?? 0}\n` +
+      `Membership: ${u.membership}\n` +
+      `Banned: ${u.is_banned ? "yes 🚫" : "no"}`,
+    kb: [
+      [{ text: "➕ Add balance", callback_data: `adm:ub:${targetId}` }],
+      [{ text: "✉️ Message user", callback_data: `adm:um:${targetId}` }],
+      [{ text: u.is_banned ? "✅ Unban" : "🚫 Ban", callback_data: `adm:ux:${targetId}` }],
+      [{ text: "⬅️ Admin panel", callback_data: "adm:stats" }],
+    ] as Button[][],
+  };
+}
+
+async function admStockPickView() {
+  const { data } = await db
+    .from("products")
+    .select("id,name,emoji")
+    .eq("is_active", true)
+    .order("sort_order")
+    .limit(20);
+  if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:sp:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: "📦 Pick the product to add stock to:", kb };
+}
+
+
 
 
 /* --------------------------------------------- direct checkout (pay per order) */
@@ -1672,18 +1938,85 @@ async function handleCallback(cq: any) {
   if (data.startsWith("adm:")) {
     if (!(await isAdmin(chatId))) return;
     const action = data.slice(4);
+    const arg = action.split(":")[1] ?? "";
+    const st = (user.state ?? {}) as any;
+
     if (action === "stats") {
-      await edit(await adminStatsText(), [
-        [{ text: "🔄 Refresh", callback_data: "adm:stats" }],
-        [{ text: "📢 Broadcast", callback_data: "adm:broadcast" }],
-        [{ text: "➕ Add Balance", callback_data: "adm:addbal" }],
-        [{ text: "🏠 Home", callback_data: "home" }],
-      ]);
+      await edit(await adminStatsText(), adminKeyboard());
+    } else if (action === "orders") {
+      const v = await admOrdersView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("o:")) {
+      const v = await admOrderView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("od:")) {
+      await setState(chatId, { ...st, awaiting: "adm_deliver", adm_order: arg });
+      await say(chatId, "🚚 Send the content to deliver to the buyer.");
+    } else if (action.startsWith("oc:")) {
+      const { data: o } = await db.from("orders").select("*").eq("id", arg).maybeSingle();
+      if (o && o.status === "pending") {
+        await db.from("orders").update({ status: "cancelled" }).eq("id", arg);
+        const u = await getUser(o.telegram_id);
+        await db
+          .from("bot_users")
+          .update({ balance: Number(u?.balance ?? 0) + Number(o.total) })
+          .eq("telegram_id", o.telegram_id);
+        await db.from("transactions").insert({
+          telegram_id: o.telegram_id,
+          type: "refund",
+          amount: o.total,
+          note: `Order #${o.order_no} cancelled`,
+        });
+        await sendMessage(
+          o.telegram_id,
+          `❌ Order #${o.order_no} was cancelled. ${money(o.total)} refunded to your balance.`,
+        );
+      }
+      const v = await admOrdersView();
+      await edit(v.text, v.kb);
+    } else if (action === "pays") {
+      const v = await admPaymentsView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pay:")) {
+      const v = await admPaymentView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pa:") || action.startsWith("pr:")) {
+      const msgTxt = await admDecidePayment(arg, action.startsWith("pa:"));
+      const v = await admPaymentsView();
+      await edit(`${msgTxt}\n\n${v.text}`, v.kb);
+    } else if (action === "user") {
+      await setState(chatId, { ...st, awaiting: "adm_find" });
+      await say(chatId, "👤 Send the telegram ID or @username.");
+    } else if (action.startsWith("ub:")) {
+      await setState(chatId, { ...st, awaiting: "adm_addbal_user", adm_target: Number(arg) });
+      await say(chatId, "➕ Send the amount (negative to deduct).");
+    } else if (action.startsWith("um:")) {
+      await setState(chatId, { ...st, awaiting: "adm_msg_user", adm_target: Number(arg) });
+      await say(chatId, "✉️ Send the message text.");
+    } else if (action.startsWith("ux:")) {
+      const target = await getUser(Number(arg));
+      if (target) {
+        await db
+          .from("bot_users")
+          .update({ is_banned: !target.is_banned })
+          .eq("telegram_id", target.telegram_id);
+      }
+      const v = await admUserView(Number(arg));
+      await edit(v.text, v.kb);
+    } else if (action === "stock") {
+      const v = await admStockPickView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("sp:")) {
+      await setState(chatId, { ...st, awaiting: "adm_stock", adm_product: arg });
+      await say(chatId, "📦 Send the stock items — one per line.");
+    } else if (action === "code") {
+      await setState(chatId, { ...st, awaiting: "adm_code" });
+      await say(chatId, "🎁 Send the code value, e.g. <code>10</code>");
     } else if (action === "broadcast") {
-      await setState(chatId, { ...(user.state ?? {}), awaiting: "broadcast" });
+      await setState(chatId, { ...st, awaiting: "broadcast" });
       await say(chatId, "📢 Send the broadcast message text.");
     } else if (action === "addbal") {
-      await setState(chatId, { ...(user.state ?? {}), awaiting: "addbal" });
+      await setState(chatId, { ...st, awaiting: "addbal" });
       await say(chatId, "➕ Send: <code>telegram_id amount</code>");
     }
     return;
