@@ -12,6 +12,8 @@ const NAV = [
   { to: "/dashboard/users", label: "Users" },
   { to: "/dashboard/codes", label: "Redeem Codes" },
   { to: "/dashboard/settings", label: "Settings" },
+  { to: "/dashboard/webhook", label: "Webhook" },
+
 ] as const;
 
 export function AdminShell({ title, children }: { title: string; children: ReactNode }) {

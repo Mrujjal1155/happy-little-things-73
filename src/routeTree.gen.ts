@@ -19,6 +19,7 @@ import { Route as AuthenticatedDashboardPaymentsRouteImport } from './routes/_au
 import { Route as AuthenticatedDashboardProductsRouteImport } from './routes/_authenticated/dashboard.products'
 import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard.settings'
 import { Route as AuthenticatedDashboardUsersRouteImport } from './routes/_authenticated/dashboard.users'
+import { Route as AuthenticatedDashboardWebhookRouteImport } from './routes/_authenticated/dashboard.webhook'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,12 @@ const AuthenticatedDashboardUsersRoute =
     path: '/dashboard/users',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardWebhookRoute =
+  AuthenticatedDashboardWebhookRouteImport.update({
+    id: '/dashboard/webhook',
+    path: '/dashboard/webhook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/products': typeof AuthenticatedDashboardProductsRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/users': typeof AuthenticatedDashboardUsersRoute
+  '/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesByTo {
   '/dashboard/products': typeof AuthenticatedDashboardProductsRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/users': typeof AuthenticatedDashboardUsersRoute
+  '/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -119,6 +128,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/products': typeof AuthenticatedDashboardProductsRoute
   '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/_authenticated/dashboard/users': typeof AuthenticatedDashboardUsersRoute
+  '/_authenticated/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/dashboard/products'
     | '/dashboard/settings'
     | '/dashboard/users'
+    | '/dashboard/webhook'
     | '/dashboard/'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/dashboard/products'
     | '/dashboard/settings'
     | '/dashboard/users'
+    | '/dashboard/webhook'
     | '/dashboard'
     | '/api/public/telegram/webhook'
   id:
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/products'
     | '/_authenticated/dashboard/settings'
     | '/_authenticated/dashboard/users'
+    | '/_authenticated/dashboard/webhook'
     | '/_authenticated/dashboard/'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -241,6 +254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardUsersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard/webhook': {
+      id: '/_authenticated/dashboard/webhook'
+      path: '/dashboard/webhook'
+      fullPath: '/dashboard/webhook'
+      preLoaderRoute: typeof AuthenticatedDashboardWebhookRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -258,6 +278,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardProductsRoute: typeof AuthenticatedDashboardProductsRoute
   AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
   AuthenticatedDashboardUsersRoute: typeof AuthenticatedDashboardUsersRoute
+  AuthenticatedDashboardWebhookRoute: typeof AuthenticatedDashboardWebhookRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
@@ -268,6 +289,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardProductsRoute: AuthenticatedDashboardProductsRoute,
   AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
   AuthenticatedDashboardUsersRoute: AuthenticatedDashboardUsersRoute,
+  AuthenticatedDashboardWebhookRoute: AuthenticatedDashboardWebhookRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
 }
 
