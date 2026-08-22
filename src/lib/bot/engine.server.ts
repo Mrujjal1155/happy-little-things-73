@@ -150,7 +150,11 @@ async function getUser(telegramId: number) {
 
 function homeKeyboard(): Button[][] {
   return [
-    [{ text: "🛒 SHOP", callback_data: "shop:0" }],
+    [
+      { text: "🛒 SHOP", callback_data: "shop:0" },
+      { text: "🧺 Cart", callback_data: "cart" },
+    ],
+
     [
       { text: "💰 Wallet", callback_data: "wallet" },
       { text: "🎁 Freebies", callback_data: "page:freebies_text" },
