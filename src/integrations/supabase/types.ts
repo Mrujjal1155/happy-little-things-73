@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      binance_deposits: {
+        Row: {
+          address: string | null
+          amount_usdt: number
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          network: string | null
+          status: string
+          telegram_id: number
+          tx_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          amount_usdt?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          network?: string | null
+          status?: string
+          telegram_id: number
+          tx_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          amount_usdt?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          network?: string | null
+          status?: string
+          telegram_id?: number
+          tx_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      binance_used_txs: {
+        Row: {
+          created_at: string
+          tx_id: string
+        }
+        Insert: {
+          created_at?: string
+          tx_id: string
+        }
+        Update: {
+          created_at?: string
+          tx_id?: string
+        }
+        Relationships: []
+      }
       bot_settings: {
         Row: {
           key: string
