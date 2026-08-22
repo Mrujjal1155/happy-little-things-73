@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { getBotSettings, registerWebhook, saveBotSettings } from "@/lib/admin.functions";
+import { checkBotToken, getBotSettings, registerWebhook, saveBotSettings } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/AdminShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,14 @@ function SettingsPage() {
   const fetchSettings = useServerFn(getBotSettings);
   const save = useServerFn(saveBotSettings);
   const hook = useServerFn(registerWebhook);
+  const checkToken = useServerFn(checkBotToken);
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => fetchSettings() });
+  const { data: tokenStatus, isLoading: tokenLoading } = useQuery({
+    queryKey: ["bot-token-status"],
+    queryFn: () => checkToken(),
+    refetchOnWindowFocus: false,
+  });
+  const tokenOk = tokenStatus?.status === "ok";
   const [values, setValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -62,6 +69,10 @@ function SettingsPage() {
   }
 
   async function onConnect() {
+    if (tokenStatus && !tokenOk) {
+      toast.error(tokenStatus.message);
+      return;
+    }
     try {
       const r = await hook({ data: { origin: window.location.origin } });
       if (r.ok) toast.success("Webhook registered");
@@ -73,6 +84,37 @@ function SettingsPage() {
 
   return (
     <AdminShell title="Settings">
+      <Card
+        className={
+          tokenLoading || !tokenStatus
+            ? ""
+            : tokenOk
+              ? "mb-4 border-primary/40"
+              : "mb-4 border-destructive/50"
+        }
+      >
+        <CardHeader>
+          <CardTitle>Telegram bot token</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {tokenLoading || !tokenStatus ? (
+            <p className="text-sm text-muted-foreground">Checking bot token…</p>
+          ) : (
+            <>
+              <p className={`text-sm ${tokenOk ? "text-primary" : "text-destructive"}`}>
+                {tokenOk ? "✅ " : "⚠️ "}
+                {tokenStatus.message}
+              </p>
+              {!tokenOk && (
+                <p className="text-xs text-muted-foreground">
+                  Open @BotFather in Telegram → /mybots → API Token, then save it as the
+                  TELEGRAM_BOT_TOKEN secret and reload this page.
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Bot configuration</CardTitle>
@@ -97,7 +139,7 @@ function SettingsPage() {
           ))}
           <div className="flex gap-2 sm:col-span-2">
             <Button onClick={onSave}>Save settings</Button>
-            <Button variant="outline" onClick={onConnect}>
+            <Button variant="outline" onClick={onConnect} disabled={!tokenOk}>
               Connect webhook
             </Button>
           </div>
