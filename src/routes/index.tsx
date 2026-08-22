@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { MessageCircle, ShoppingBag, Sparkles } from "lucide-react";
 import { listStorefront } from "@/lib/shop.functions";
 import { StoreShell } from "@/components/StoreShell";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/qorix-logo.png";
@@ -77,8 +78,8 @@ function Landing() {
                 to="/store"
                 className="group rounded-2xl border border-border bg-card px-4 py-6 text-center transition-all hover:-translate-y-1 hover:border-primary/60 hover:card-glow"
               >
-                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-xl">
-                  {c.emoji ?? "📁"}
+                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                  <CategoryIcon name={c.name} />
                 </span>
                 <h2 className="mt-3 text-sm font-semibold group-hover:text-primary">{c.name}</h2>
                 <p className="text-xs text-muted-foreground">{countFor(c.id)} products</p>

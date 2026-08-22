@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { getStoreProduct, getStorePayInfo, placeWebsiteOrder } from "@/lib/shop.functions";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { StoreShell, priceTag } from "@/components/StoreShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,8 +97,8 @@ function ProductPage() {
               {product?.image_url ? (
                 <img src={product.image_url} alt={product.name} className="aspect-video w-full object-cover" />
               ) : (
-                <div className="flex aspect-video w-full items-center justify-center text-6xl">
-                  {product?.emoji ?? "📦"}
+                <div className="flex aspect-video w-full items-center justify-center text-primary">
+                  <CategoryIcon name={product?.name} className="h-20 w-20" />
                 </div>
               )}
             </div>
