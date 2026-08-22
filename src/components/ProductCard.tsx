@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2, Clock, ShoppingCart, Star, Zap } from "lucide-react";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { priceTag } from "@/components/StoreShell";
 import { Button } from "@/components/ui/button";
 
@@ -42,8 +43,8 @@ export function ProductCard({ product }: { product: StoreProduct }) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-chart-4/15 text-6xl">
-            {product.emoji ?? "📦"}
+          <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-chart-4/15 text-primary">
+            <CategoryIcon name={product.name} className="h-16 w-16" />
           </span>
         )}
         {off > 0 && (

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { listStorefront } from "@/lib/shop.functions";
 import { StoreShell } from "@/components/StoreShell";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 
@@ -57,9 +58,9 @@ function StorePage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <CatPill active={cat === "all"} onClick={() => setCat("all")} label="All" emoji="🗂️" />
+          <CatPill active={cat === "all"} onClick={() => setCat("all")} label="All" />
           {categories.map((c: any) => (
-            <CatPill key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} label={c.name} emoji={c.emoji} />
+            <CatPill key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} label={c.name} />
           ))}
         </div>
 
@@ -94,23 +95,21 @@ function CatPill({
   active,
   onClick,
   label,
-  emoji,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  emoji?: string | null;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+      className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors ${
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
       }`}
     >
-      <span className="mr-1">{emoji ?? "📁"}</span>
+      <CategoryIcon name={label} className="h-4 w-4" />
       {label}
     </button>
   );
