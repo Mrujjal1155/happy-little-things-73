@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { BinanceSetupCard } from "@/components/BinanceSetupCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard/settings")({
   head: () => ({
@@ -28,7 +29,6 @@ export const Route = createFileRoute("/_authenticated/dashboard/settings")({
 const FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "bot_name", label: "Bot name" },
   { key: "welcome_text", label: "Welcome text", long: true },
-  { key: "binance_pay", label: "Binance Pay ID (auto deposits)" },
   { key: "usdt_bep20", label: "USDT BEP-20 address" },
   { key: "bkash_number", label: "bKash number" },
   { key: "nagad_number", label: "Nagad number" },
@@ -121,21 +121,7 @@ function SettingsPage() {
           )}
         </CardContent>
       </Card>
-      <Card className={binanceStatus ? (binanceStatus.ok ? "mb-4 border-primary/40" : "mb-4 border-destructive/50") : "mb-4"}>
-        <CardHeader>
-          <CardTitle>Binance auto-deposits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className={`text-sm ${binanceStatus?.ok ? "text-primary" : "text-destructive"}`}>
-            {binanceStatus ? `${binanceStatus.ok ? "✅ " : "⚠️ "}${binanceStatus.message}` : "Checking Binance API keys…"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Binance Pay and on-chain USDT (BEP-20 / TRC-20) deposits are verified automatically through the
-            Binance API using BINANCE_API_KEY and BINANCE_API_SECRET. Set your Pay ID below for Pay ID deposits;
-            crypto addresses are fetched from Binance automatically.
-          </p>
-        </CardContent>
-      </Card>
+      <BinanceSetupCard values={values} setValues={setValues} onSave={onSave} apiStatus={binanceStatus} />
       <Card>
         <CardHeader>
           <CardTitle>Bot configuration</CardTitle>
