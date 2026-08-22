@@ -1938,18 +1938,85 @@ async function handleCallback(cq: any) {
   if (data.startsWith("adm:")) {
     if (!(await isAdmin(chatId))) return;
     const action = data.slice(4);
+    const arg = action.split(":")[1] ?? "";
+    const st = (user.state ?? {}) as any;
+
     if (action === "stats") {
-      await edit(await adminStatsText(), [
-        [{ text: "🔄 Refresh", callback_data: "adm:stats" }],
-        [{ text: "📢 Broadcast", callback_data: "adm:broadcast" }],
-        [{ text: "➕ Add Balance", callback_data: "adm:addbal" }],
-        [{ text: "🏠 Home", callback_data: "home" }],
-      ]);
+      await edit(await adminStatsText(), adminKeyboard());
+    } else if (action === "orders") {
+      const v = await admOrdersView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("o:")) {
+      const v = await admOrderView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("od:")) {
+      await setState(chatId, { ...st, awaiting: "adm_deliver", adm_order: arg });
+      await say(chatId, "🚚 Send the content to deliver to the buyer.");
+    } else if (action.startsWith("oc:")) {
+      const { data: o } = await db.from("orders").select("*").eq("id", arg).maybeSingle();
+      if (o && o.status === "pending") {
+        await db.from("orders").update({ status: "cancelled" }).eq("id", arg);
+        const u = await getUser(o.telegram_id);
+        await db
+          .from("bot_users")
+          .update({ balance: Number(u?.balance ?? 0) + Number(o.total) })
+          .eq("telegram_id", o.telegram_id);
+        await db.from("transactions").insert({
+          telegram_id: o.telegram_id,
+          type: "refund",
+          amount: o.total,
+          note: `Order #${o.order_no} cancelled`,
+        });
+        await sendMessage(
+          o.telegram_id,
+          `❌ Order #${o.order_no} was cancelled. ${money(o.total)} refunded to your balance.`,
+        );
+      }
+      const v = await admOrdersView();
+      await edit(v.text, v.kb);
+    } else if (action === "pays") {
+      const v = await admPaymentsView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pay:")) {
+      const v = await admPaymentView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pa:") || action.startsWith("pr:")) {
+      const msgTxt = await admDecidePayment(arg, action.startsWith("pa:"));
+      const v = await admPaymentsView();
+      await edit(`${msgTxt}\n\n${v.text}`, v.kb);
+    } else if (action === "user") {
+      await setState(chatId, { ...st, awaiting: "adm_find" });
+      await say(chatId, "👤 Send the telegram ID or @username.");
+    } else if (action.startsWith("ub:")) {
+      await setState(chatId, { ...st, awaiting: "adm_addbal_user", adm_target: Number(arg) });
+      await say(chatId, "➕ Send the amount (negative to deduct).");
+    } else if (action.startsWith("um:")) {
+      await setState(chatId, { ...st, awaiting: "adm_msg_user", adm_target: Number(arg) });
+      await say(chatId, "✉️ Send the message text.");
+    } else if (action.startsWith("ux:")) {
+      const target = await getUser(Number(arg));
+      if (target) {
+        await db
+          .from("bot_users")
+          .update({ is_banned: !target.is_banned })
+          .eq("telegram_id", target.telegram_id);
+      }
+      const v = await admUserView(Number(arg));
+      await edit(v.text, v.kb);
+    } else if (action === "stock") {
+      const v = await admStockPickView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("sp:")) {
+      await setState(chatId, { ...st, awaiting: "adm_stock", adm_product: arg });
+      await say(chatId, "📦 Send the stock items — one per line.");
+    } else if (action === "code") {
+      await setState(chatId, { ...st, awaiting: "adm_code" });
+      await say(chatId, "🎁 Send the code value, e.g. <code>10</code>");
     } else if (action === "broadcast") {
-      await setState(chatId, { ...(user.state ?? {}), awaiting: "broadcast" });
+      await setState(chatId, { ...st, awaiting: "broadcast" });
       await say(chatId, "📢 Send the broadcast message text.");
     } else if (action === "addbal") {
-      await setState(chatId, { ...(user.state ?? {}), awaiting: "addbal" });
+      await setState(chatId, { ...st, awaiting: "addbal" });
       await say(chatId, "➕ Send: <code>telegram_id amount</code>");
     }
     return;
