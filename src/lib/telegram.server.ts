@@ -108,9 +108,25 @@ export const COMMAND_LIST = [
   { command: "help", description: "Show all commands" },
 ] as const;
 
-export function setMyCommands() {
-  return tg("setMyCommands", {
-    commands: COMMAND_LIST.map((c) => ({ command: c.command, description: c.description })),
-  });
+export const ADMIN_COMMAND_LIST = [
+  { command: "admin", description: "Admin control panel" },
+] as const;
+
+export async function setMyCommands(adminChatIds: (string | number)[] = []) {
+  const base = COMMAND_LIST.map((c) => ({ command: c.command, description: c.description }));
+
+  // Public/default scope: no admin commands here.
+  const res = await tg("setMyCommands", { commands: base, scope: { type: "default" } });
+
+  // Admin-only scope: visible solely inside each admin's private chat.
+  for (const id of adminChatIds) {
+    await tg("setMyCommands", {
+      commands: [...base, ...ADMIN_COMMAND_LIST.map((c) => ({ ...c }))],
+      scope: { type: "chat", chat_id: Number(id) },
+    });
+  }
+
+  return res;
 }
+
 
