@@ -48,7 +48,7 @@ export function StoreShell({ children }: { children: ReactNode }) {
 
           <Link
             to="/store"
-            search={{ c: undefined }}
+            search={{}}
             className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/25 lg:inline-flex"
           >
             <LayoutGrid className="h-4 w-4" /> Categories
