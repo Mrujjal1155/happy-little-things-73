@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as StoreIndexRouteImport } from './routes/store.index'
+import { Route as StoreIdRouteImport } from './routes/store.$id'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedDashboardCodesRouteImport } from './routes/_authenticated/dashboard.codes'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
@@ -40,6 +41,11 @@ const AuthRoute = AuthRouteImport.update({
 const StoreIndexRoute = StoreIndexRouteImport.update({
   id: '/store/',
   path: '/store/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoreIdRoute = StoreIdRouteImport.update({
+  id: '/store/$id',
+  path: '/store/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardIndexRoute =
@@ -100,6 +106,7 @@ const ApiPublicTelegramWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/store/$id': typeof StoreIdRoute
   '/store/': typeof StoreIndexRoute
   '/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/store/$id': typeof StoreIdRoute
   '/store': typeof StoreIndexRoute
   '/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/store/$id': typeof StoreIdRoute
   '/store/': typeof StoreIndexRoute
   '/_authenticated/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/store/$id'
     | '/store/'
     | '/dashboard/codes'
     | '/dashboard/orders'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/store/$id'
     | '/store'
     | '/dashboard/codes'
     | '/dashboard/orders'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/store/$id'
     | '/store/'
     | '/_authenticated/dashboard/codes'
     | '/_authenticated/dashboard/orders'
@@ -191,6 +203,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  StoreIdRoute: typeof StoreIdRoute
   StoreIndexRoute: typeof StoreIndexRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/store/'
       preLoaderRoute: typeof StoreIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/store/$id': {
+      id: '/store/$id'
+      path: '/store/$id'
+      fullPath: '/store/$id'
+      preLoaderRoute: typeof StoreIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard/': {
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  StoreIdRoute: StoreIdRoute,
   StoreIndexRoute: StoreIndexRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
