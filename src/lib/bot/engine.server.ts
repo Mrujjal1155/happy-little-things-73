@@ -737,7 +737,7 @@ async function handleMessage(msg: any) {
       text,
     )
   ) {
-    const cmd = text.slice(1).split(/[\s@]/)[0];
+    const cmd = text.slice(1).split(/[\s@]/)[0] ?? "";
     const fresh = await getUser(chatId);
     const homeBtn: Button[][] = [[{ text: "🏠 Home", callback_data: "home" }]];
     const pageKeys: Record<string, string> = {
