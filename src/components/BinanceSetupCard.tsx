@@ -113,8 +113,29 @@ export function BinanceSetupCard({
           <div className="space-y-1 sm:col-span-2">
             <Label>Binance Pay ID (For Pay ID Auto-Verify)</Label>
             <Input
+              placeholder="e.g. 123456789"
               value={values["binance_pay"] ?? ""}
               onChange={(e) => set("binance_pay", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <Label>USDT BEP-20 (BSC) wallet address</Label>
+            <Input
+              className="font-mono"
+              placeholder="0x…"
+              value={values["usdt_bep20"] ?? ""}
+              onChange={(e) => set("usdt_bep20", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <Label>USDT TRC-20 (Tron) wallet address</Label>
+            <Input
+              className="font-mono"
+              placeholder="T…"
+              value={values["usdt_trc20"] ?? ""}
+              onChange={(e) => set("usdt_trc20", e.target.value)}
             />
           </div>
         </div>
@@ -146,11 +167,14 @@ export function BinanceSetupCard({
           </div>
         </div>
 
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          <b>Note:</b> Deposit addresses for crypto (TRC20, BEP20) are fetched and verified automatically using
-          your API keys. You do not need to enter any wallet address here. Keys are verified with Binance before
-          saving and are only readable by the server — never sent back to this page.
+        <div className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+          <b>How addresses work:</b> in <b>Live Mode</b> the bot first tries to pull a deposit address from Binance
+          with your API keys; if Binance blocks the server (HTTP 403 / restricted region) it falls back to the
+          wallet addresses you typed above. In <b>Personal Mode</b> only the addresses above are used and every
+          payment is confirmed from the transaction ID (auto-match when possible, otherwise admin approval).
+          Always fill both wallet addresses so deposits never fail.
         </div>
+
 
         <div className="space-y-2">
           <Label>Active Payment Type</Label>

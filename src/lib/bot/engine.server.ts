@@ -467,24 +467,37 @@ async function startBinanceDeposit(
 ) {
   const s = await getSettings();
   const amountUsdt = uniqueAmount(amount);
+  const personal = (s["binance_mode"] ?? "live") === "personal";
   let address = "";
 
   if (kind === "payid") {
-    address = s["binance_pay"] || "";
-    if (!address) return { error: "Binance Pay ID is not configured. Please contact support." };
+    address = (s["binance_pay"] || "").trim();
+    if (!address)
+      return { error: "Binance Pay is not set up yet. Please contact support or use another payment method." };
   } else {
     const fallbackKey = network === "TRX" ? "usdt_trc20" : "usdt_bep20";
-    try {
-      const { getDepositAddress } = await import("@/lib/binance.server");
-      const r = await getDepositAddress(network!);
-      if (r.ok) address = r.address;
-    } catch {
-      /* fall back to the address configured by the admin */
+    address = (s[fallbackKey] || "").trim();
+    if (!address && !personal) {
+      // Only ask Binance when the admin has not pinned a wallet address.
+      try {
+        const { getDepositAddress } = await import("@/lib/binance.server");
+        const r = await getDepositAddress(network!);
+        if (r.ok) address = r.address;
+      } catch {
+        /* Binance can block the server (403) — fall through to the manual address */
+      }
     }
-    if (!address) address = (s[fallbackKey] || "").trim();
-    if (!address)
-      return { error: `No ${network} USDT deposit address is configured yet. Please contact support.` };
+    if (!address) {
+      const label = network === "TRX" ? "USDT TRC-20" : "USDT BEP-20";
+      await notifyAdmins(
+        `⚠️ <b>${label} deposit address missing</b>\nA user tried to deposit but no wallet address is configured.\nAdd it in Dashboard → Settings → Binance Setup.`,
+      );
+      return {
+        error: `${label} deposits are temporarily unavailable. Please use another payment method or contact support.`,
+      };
+    }
   }
+
 
   const { data: row, error } = await db
     .from("binance_deposits")
@@ -546,15 +559,17 @@ async function verifyBinanceDeposit(chatId: number, id: string) {
   if (!result.ok) {
     return {
       message:
-        `⏳ Payment not found yet.\n\n` +
-        `Make sure you sent exactly <b>${expected.toFixed(4)} USDT</b>. On-chain deposits can take a few minutes — tap verify again.` +
-        (result.error ? `\n\n<i>${escapeHtml(result.error)}</i>` : ""),
+        `⏳ Payment not confirmed yet.\n\n` +
+        `Make sure you sent exactly <b>${expected.toFixed(4)} USDT</b>. Payments can take a few minutes.\n\n` +
+        `👉 Fastest way: tap <b>Submit transaction ID</b> and send your TXID — we will confirm it manually within minutes.`,
       keyboard: [
+        [{ text: "🧾 Submit transaction ID", callback_data: `btx:${id}` }],
         [{ text: "🔄 Verify again", callback_data: `bchk:${id}` }],
         [{ text: "⬅️ Wallet", callback_data: "wallet" }],
       ] as Button[][],
     };
   }
+
 
   const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: result.txId });
   if (usedErr) return { message: "⏳ Payment not found yet. Please try again." };
