@@ -92,8 +92,19 @@ function ProductPage() {
       <section className="mx-auto grid max-w-6xl gap-6 px-4 py-12 lg:grid-cols-[1fr_420px]">
         <Card className="bg-card/70">
           <CardContent className="space-y-4 pt-6">
+            <div className="overflow-hidden rounded-xl border border-border bg-secondary/50">
+              {product?.image_url ? (
+                <img src={product.image_url} alt={product.name} className="aspect-video w-full object-cover" />
+              ) : (
+                <div className="flex aspect-video w-full items-center justify-center text-6xl">
+                  {product?.emoji ?? "📦"}
+                </div>
+              )}
+            </div>
             <div className="flex items-start justify-between">
-              <span className="text-5xl">{product?.emoji ?? "📦"}</span>
+              <span className="text-sm text-muted-foreground">
+                {product?.delivery_time || (product?.delivery_type === "auto" ? "Instant delivery" : "Manual delivery")}
+              </span>
               {product && (
                 <Badge variant={product.delivery_type === "auto" ? "default" : "secondary"}>
                   {product.delivery_type === "auto" ? "Instant delivery" : "Manual delivery"}
