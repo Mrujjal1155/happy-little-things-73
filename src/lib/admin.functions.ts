@@ -67,11 +67,16 @@ export const getCatalogue = createServerFn({ method: "GET" })
 
 export const saveCategory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id?: string; name: string; emoji?: string; sort_order?: number }) => d)
+  .inputValidator((d: { id?: string; name: string; emoji?: string; sort_order?: number; channel?: string }) => d)
   .handler(async ({ data, context }) => {
     const sb = (context as any).supabase;
     await assertAdmin(context);
-    const row = { name: data.name, emoji: data.emoji ?? "📁", sort_order: data.sort_order ?? 0 };
+    const row = {
+      name: data.name,
+      emoji: data.emoji ?? "📁",
+      sort_order: data.sort_order ?? 0,
+      channel: data.channel ?? "both",
+    };
     const { error } = data.id
       ? await sb.from("categories").update(row).eq("id", data.id)
       : await sb.from("categories").insert(row);
@@ -153,12 +158,13 @@ export const addStock = createServerFn({ method: "POST" })
 
 export const listOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { status?: string }) => d ?? {})
+  .inputValidator((d: { status?: string; source?: string }) => d ?? {})
   .handler(async ({ data, context }) => {
     const sb = (context as any).supabase;
     await assertAdmin(context);
     let q = sb.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
     if (data?.status && data.status !== "all") q = q.eq("status", data.status);
+    if (data?.source && data.source !== "all") q = q.eq("source", data.source);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return rows ?? [];
@@ -177,6 +183,7 @@ export const deliverOrder = createServerFn({ method: "POST" })
       .select("*")
       .maybeSingle();
     if (error) throw new Error(error.message);
+    if (order?.source === "website" || !order?.telegram_id) return { ok: true };
     const { sendMessage } = await import("@/lib/telegram.server");
     const esc = data.content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     await sendMessage(
