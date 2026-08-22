@@ -221,9 +221,11 @@ async function shopView(page: number) {
   if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
   if (nav.length) kb.push(nav);
   kb.push([
+    { text: "🧺 Cart", callback_data: "cart" },
     { text: "🔄 Refresh", callback_data: `shop:${page}` },
     { text: "🏠 Home", callback_data: "home" },
   ]);
+
   const text =
     `<b>P R O D U C T S</b>\n\n` +
     `🟢 <b>${inStock} of ${products.length}</b> in stock\n` +
