@@ -557,40 +557,60 @@ async function verifyBinanceDeposit(chatId: number, id: string) {
   const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: result.txId });
   if (usedErr) return { message: "⏳ Payment not found yet. Please try again." };
 
+  return await settlePayment(chatId, row, Number(result.amount), result.txId!, "Auto-verified via Binance API");
+}
+
+/** Credit a wallet deposit, or fulfil a direct checkout attached to the deposit row. */
+async function settlePayment(chatId: number, row: any, amount: number, txid: string, note: string) {
+  const methodLabel = row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`;
+  const methodKey = row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`;
+  const meta = (row.meta ?? {}) as any;
+
+  await db.from("binance_deposits").update({ status: "credited", tx_id: txid }).eq("id", row.id);
+  await db.from("payment_requests").insert({
+    telegram_id: chatId,
+    method: methodLabel,
+    amount,
+    txid,
+    status: "approved",
+    admin_note: note,
+  });
+
+  if (Array.isArray(meta.items) && meta.items.length) {
+    await db.from("transactions").insert({
+      telegram_id: chatId,
+      type: "deposit",
+      amount,
+      method: methodKey,
+      reference: txid,
+      note: "Direct checkout payment",
+    });
+    const fresh = await getUser(chatId);
+    await db.from("bot_users").update({ balance: Number(fresh.balance) + amount }).eq("telegram_id", chatId);
+    const res = await fulfillCheckout(chatId, meta, methodKey, txid);
+    return { message: res.text, keyboard: res.kb };
+  }
+
   const user = await getUser(chatId);
-  await db
-    .from("bot_users")
-    .update({ balance: Number(user.balance) + result.amount })
-    .eq("telegram_id", chatId);
-  await db
-    .from("binance_deposits")
-    .update({ status: "credited", tx_id: result.txId })
-    .eq("id", id);
+  await db.from("bot_users").update({ balance: Number(user.balance) + amount }).eq("telegram_id", chatId);
   await db.from("transactions").insert({
     telegram_id: chatId,
     type: "deposit",
-    amount: result.amount,
-    method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
-    reference: result.txId,
-    note: "Auto-verified via Binance API",
-  });
-  await db.from("payment_requests").insert({
-    telegram_id: chatId,
-    method: row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`,
-    amount: result.amount,
-    txid: result.txId,
-    status: "approved",
-    admin_note: "Auto-approved by Binance API",
+    amount,
+    method: methodKey,
+    reference: txid,
+    note,
   });
 
   return {
-    message: `🎉 Payment confirmed!\n\n${money(result.amount)} has been added to your balance.`,
+    message: `🎉 Payment confirmed!\n\n${money(amount)} has been added to your balance.`,
     keyboard: [
       [{ text: "💰 Wallet", callback_data: "wallet" }],
       [{ text: "🏠 Home", callback_data: "home" }],
     ] as Button[][],
   };
 }
+
 
 
 
