@@ -107,6 +107,9 @@ export const saveProduct = createServerFn({ method: "POST" })
       old_price?: number | null;
       delivery_type: "auto" | "manual";
       manual_note?: string;
+      image_url?: string | null;
+      delivery_time?: string | null;
+      badge?: string | null;
       is_active?: boolean;
       sort_order?: number;
     }) => d,
@@ -119,6 +122,9 @@ export const saveProduct = createServerFn({ method: "POST" })
       ...rest,
       category_id: rest.category_id || null,
       old_price: rest.old_price ?? null,
+      image_url: rest.image_url || null,
+      delivery_time: rest.delivery_time || null,
+      badge: rest.badge || null,
     };
     const { error } = id
       ? await sb.from("products").update(row).eq("id", id)

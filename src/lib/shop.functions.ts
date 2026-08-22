@@ -32,13 +32,22 @@ export const listStorefront = createServerFn({ method: "GET" }).handler(async ()
     sb.from("categories").select("id,name,emoji,sort_order,channel").eq("is_active", true).order("sort_order"),
     sb
       .from("products")
-      .select("id,name,emoji,description,price,old_price,delivery_type,category_id,sort_order")
+      .select(
+        "id,name,emoji,description,price,old_price,delivery_type,category_id,sort_order,image_url,delivery_time,badge",
+      )
       .eq("is_active", true)
       .order("sort_order"),
   ]);
   const categories = (cats.data ?? []).filter((c: any) => c.channel !== "telegram");
   const allowed = new Set(categories.map((c: any) => c.id));
-  const products = (prods.data ?? []).filter((p: any) => !p.category_id || allowed.has(p.category_id));
+  const base = (prods.data ?? []).filter((p: any) => !p.category_id || allowed.has(p.category_id));
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: stock } = await supabaseAdmin.from("stock_items").select("product_id").eq("is_sold", false);
+  const counts: Record<string, number> = {};
+  for (const s of stock ?? []) counts[s.product_id as string] = (counts[s.product_id as string] ?? 0) + 1;
+
+  const products = base.map((p: any) => ({ ...p, stock: counts[p.id] ?? 0 }));
   return { categories, products };
 });
 
@@ -48,7 +57,9 @@ export const getStoreProduct = createServerFn({ method: "GET" })
     const sb = await anonSupabase();
     const { data: row } = await sb
       .from("products")
-      .select("id,name,emoji,description,price,old_price,delivery_type,category_id")
+      .select(
+        "id,name,emoji,description,price,old_price,delivery_type,category_id,image_url,delivery_time,badge",
+      )
       .eq("id", data.id)
       .eq("is_active", true)
       .maybeSingle();

@@ -40,6 +40,9 @@ const EMPTY = {
   description: "",
   price: 0,
   old_price: "" as string | number,
+  image_url: "",
+  delivery_time: "",
+  badge: "",
   delivery_type: "auto" as "auto" | "manual",
   manual_note: "",
   category_id: "",
@@ -86,6 +89,9 @@ function ProductsPage() {
           price: Number(form.price),
           old_price: form.old_price === "" ? null : Number(form.old_price),
           delivery_type: form.delivery_type,
+          image_url: form.image_url,
+          delivery_time: form.delivery_time,
+          badge: form.badge,
           manual_note: form.manual_note,
           category_id: form.category_id || null,
           is_active: form.is_active,
@@ -222,6 +228,26 @@ function ProductsPage() {
               </select>
             </div>
             <div className="space-y-1 sm:col-span-2">
+              <Label>Website image URL (Telegram keeps using the emoji)</Label>
+              <Input
+                value={form.image_url}
+                onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                placeholder="https://…/product.jpg"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Delivery time text</Label>
+              <Input
+                value={form.delivery_time}
+                onChange={(e) => setForm({ ...form, delivery_time: e.target.value })}
+                placeholder="30 min delivery"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Badge (optional)</Label>
+              <Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="HOT" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
               <Label>Description</Label>
               <Textarea
                 value={form.description}
@@ -261,7 +287,14 @@ function ProductsPage() {
               {(data?.products ?? []).map((p: any) => (
                 <tr key={p.id} className="border-t border-border">
                   <td className="py-2">
-                    {p.emoji} {p.name}
+                    <span className="flex items-center gap-2">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" className="h-8 w-8 rounded object-cover" />
+                      ) : (
+                        <span>{p.emoji}</span>
+                      )}
+                      {p.name}
+                    </span>
                   </td>
                   <td>
                     {money(p.price)}
@@ -284,6 +317,9 @@ function ProductsPage() {
                           price: Number(p.price),
                           old_price: p.old_price ?? "",
                           delivery_type: p.delivery_type,
+                          image_url: p.image_url ?? "",
+                          delivery_time: p.delivery_time ?? "",
+                          badge: p.badge ?? "",
                           manual_note: p.manual_note ?? "",
                           category_id: p.category_id ?? "",
                           is_active: p.is_active,

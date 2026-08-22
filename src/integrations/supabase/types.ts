@@ -351,12 +351,15 @@ export type Database = {
       }
       products: {
         Row: {
+          badge: string | null
           category_id: string | null
           created_at: string
+          delivery_time: string | null
           delivery_type: string
           description: string | null
           emoji: string | null
           id: string
+          image_url: string | null
           is_active: boolean
           manual_note: string | null
           name: string
@@ -366,12 +369,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          badge?: string | null
           category_id?: string | null
           created_at?: string
+          delivery_time?: string | null
           delivery_type?: string
           description?: string | null
           emoji?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           manual_note?: string | null
           name: string
@@ -381,12 +387,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          badge?: string | null
           category_id?: string | null
           created_at?: string
+          delivery_time?: string | null
           delivery_type?: string
           description?: string | null
           emoji?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           manual_note?: string | null
           name?: string
