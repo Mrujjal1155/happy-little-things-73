@@ -1035,6 +1035,169 @@ async function adminStatsText() {
   );
 }
 
+export function adminKeyboard(): Button[][] {
+  return [
+    [
+      { text: "🔄 Refresh", callback_data: "adm:stats" },
+      { text: "⏳ Pending orders", callback_data: "adm:orders" },
+    ],
+    [
+      { text: "💳 Payments", callback_data: "adm:pays" },
+      { text: "👤 Find user", callback_data: "adm:user" },
+    ],
+    [
+      { text: "📦 Add stock", callback_data: "adm:stock" },
+      { text: "🎁 New code", callback_data: "adm:code" },
+    ],
+    [
+      { text: "📢 Broadcast", callback_data: "adm:broadcast" },
+      { text: "➕ Add balance", callback_data: "adm:addbal" },
+    ],
+    [{ text: "🏠 Home", callback_data: "home" }],
+  ];
+}
+
+const ADM_BACK: Button[][] = [[{ text: "⬅️ Admin panel", callback_data: "adm:stats" }]];
+
+async function admOrdersView() {
+  const { data } = await db
+    .from("orders")
+    .select("id,order_no,telegram_id,product_name,quantity,total,delivery_type")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (!data?.length) return { text: "✅ No pending orders.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((o: any) => [
+    { text: `#${o.order_no} · ${o.product_name} x${o.quantity}`, callback_data: `adm:o:${o.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `⏳ <b>Pending orders</b> (${data.length})\nTap one to deliver or cancel.`, kb };
+}
+
+async function admOrderView(id: string) {
+  const { data: o } = await db.from("orders").select("*").eq("id", id).maybeSingle();
+  if (!o) return { text: "Order not found.", kb: ADM_BACK };
+  const text =
+    `🧾 <b>Order #${o.order_no}</b>\n\n` +
+    `Product: ${escapeHtml(o.product_name)} x${o.quantity}\n` +
+    `Total: ${money(o.total)}\n` +
+    `Buyer: <code>${o.telegram_id}</code>\n` +
+    `Status: ${o.status} · ${o.delivery_type}`;
+  return {
+    text,
+    kb: [
+      [{ text: "🚚 Deliver now", callback_data: `adm:od:${o.id}` }],
+      [{ text: "❌ Cancel & refund", callback_data: `adm:oc:${o.id}` }],
+      [{ text: "⬅️ Back", callback_data: "adm:orders" }],
+    ] as Button[][],
+  };
+}
+
+async function admPaymentsView() {
+  const { data } = await db
+    .from("payment_requests")
+    .select("id,telegram_id,method,amount")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (!data?.length) return { text: "✅ No pending payment requests.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${money(p.amount)} · ${p.method} · ${p.telegram_id}`, callback_data: `adm:pay:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `💳 <b>Pending payments</b> (${data.length})`, kb };
+}
+
+async function admPaymentView(id: string) {
+  const { data: p } = await db.from("payment_requests").select("*").eq("id", id).maybeSingle();
+  if (!p) return { text: "Payment not found.", kb: ADM_BACK };
+  return {
+    text:
+      `💳 <b>Deposit request</b>\n\n` +
+      `User: <code>${p.telegram_id}</code>\n` +
+      `Method: ${escapeHtml(p.method)}\n` +
+      `Amount: ${money(p.amount)}\n` +
+      `TXID: <code>${escapeHtml(p.txid ?? "-")}</code>\n` +
+      `Status: ${p.status}`,
+    kb: [
+      [
+        { text: "✅ Approve", callback_data: `adm:pa:${p.id}` },
+        { text: "❌ Reject", callback_data: `adm:pr:${p.id}` },
+      ],
+      [{ text: "⬅️ Back", callback_data: "adm:pays" }],
+    ] as Button[][],
+  };
+}
+
+async function admDecidePayment(id: string, approve: boolean) {
+  const { data: p } = await db.from("payment_requests").select("*").eq("id", id).maybeSingle();
+  if (!p || p.status !== "pending") return "Already handled.";
+  await db
+    .from("payment_requests")
+    .update({ status: approve ? "approved" : "rejected" })
+    .eq("id", id);
+  if (!approve) {
+    await sendMessage(p.telegram_id, "❌ Your deposit request was rejected. Contact support if this is wrong.");
+    return "Rejected.";
+  }
+  const u = await getUser(p.telegram_id);
+  await db
+    .from("bot_users")
+    .update({ balance: Number(u?.balance ?? 0) + Number(p.amount) })
+    .eq("telegram_id", p.telegram_id);
+  await db.from("transactions").insert({
+    telegram_id: p.telegram_id,
+    type: "deposit",
+    amount: p.amount,
+    method: p.method,
+    reference: p.txid,
+  });
+  await sendMessage(p.telegram_id, `✅ Deposit approved! ${money(p.amount)} added to your balance.`);
+  return "Approved and balance credited.";
+}
+
+async function admUserView(targetId: number) {
+  const u = await getUser(targetId);
+  if (!u) return { text: "❌ User not found.", kb: ADM_BACK };
+  const { count } = await db
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("telegram_id", targetId);
+  return {
+    text:
+      `👤 <b>${escapeHtml(u.username ? "@" + u.username : (u.first_name ?? "User"))}</b>\n\n` +
+      `ID: <code>${u.telegram_id}</code>\n` +
+      `Balance: ${money(u.balance)}\n` +
+      `Spent: ${money(u.total_spent)}\n` +
+      `Orders: ${count ?? 0}\n` +
+      `Membership: ${u.membership}\n` +
+      `Banned: ${u.is_banned ? "yes 🚫" : "no"}`,
+    kb: [
+      [{ text: "➕ Add balance", callback_data: `adm:ub:${targetId}` }],
+      [{ text: "✉️ Message user", callback_data: `adm:um:${targetId}` }],
+      [{ text: u.is_banned ? "✅ Unban" : "🚫 Ban", callback_data: `adm:ux:${targetId}` }],
+      [{ text: "⬅️ Admin panel", callback_data: "adm:stats" }],
+    ] as Button[][],
+  };
+}
+
+async function admStockPickView() {
+  const { data } = await db
+    .from("products")
+    .select("id,name,emoji")
+    .eq("is_active", true)
+    .order("sort_order")
+    .limit(20);
+  if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:sp:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return { text: "📦 Pick the product to add stock to:", kb };
+}
+
+
+
 
 /* --------------------------------------------- direct checkout (pay per order) */
 
