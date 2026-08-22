@@ -169,6 +169,7 @@ export type Database = {
       }
       categories: {
         Row: {
+          channel: string
           created_at: string
           emoji: string | null
           id: string
@@ -177,6 +178,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          channel?: string
           created_at?: string
           emoji?: string | null
           id?: string
@@ -185,6 +187,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          channel?: string
           created_at?: string
           emoji?: string | null
           id?: string
@@ -234,51 +237,66 @@ export type Database = {
         Row: {
           coupon_code: string | null
           created_at: string
+          customer_email: string | null
+          customer_name: string | null
           delivered_content: string | null
           delivery_type: string
           discount: number
           id: string
           order_no: number
+          payment_method: string | null
           product_id: string | null
           product_name: string
           quantity: number
+          source: string
           status: string
           telegram_id: number
           total: number
+          txid: string | null
           unit_price: number
           updated_at: string
         }
         Insert: {
           coupon_code?: string | null
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
           delivered_content?: string | null
           delivery_type?: string
           discount?: number
           id?: string
           order_no?: number
+          payment_method?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number
+          source?: string
           status?: string
-          telegram_id: number
+          telegram_id?: number
           total?: number
+          txid?: string | null
           unit_price?: number
           updated_at?: string
         }
         Update: {
           coupon_code?: string | null
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
           delivered_content?: string | null
           delivery_type?: string
           discount?: number
           id?: string
           order_no?: number
+          payment_method?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
+          source?: string
           status?: string
           telegram_id?: number
           total?: number
+          txid?: string | null
           unit_price?: number
           updated_at?: string
         }
