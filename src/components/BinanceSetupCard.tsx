@@ -22,14 +22,20 @@ export function BinanceSetupCard({
   setValues,
   onSave,
   apiStatus,
+  onSaveKeys,
+  savingKeys,
 }: {
   values: Values;
   setValues: (v: Values) => void;
   onSave: () => void;
   apiStatus?: { ok: boolean; message: string } | undefined;
+  onSaveKeys: (apiKey: string, secretKey: string) => void;
+  savingKeys?: boolean;
 }) {
   const set = (k: string, v: string) => setValues({ ...values, [k]: v });
   const live = (values["binance_mode"] ?? "live") !== "personal";
+  const [apiKey, setApiKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
 
   return (
     <Card className="mb-4">
