@@ -408,7 +408,18 @@ export const registerWebhook = createServerFn({ method: "POST" })
       .replace(/^https:\/\/([0-9a-f-]{36})\.(?:sandbox\.)?lovable\.app$/, "https://project--$1-dev.lovable.app");
     const url = `${origin}/api/public/telegram/webhook`;
     const res = await setWebhook(url, deriveTelegramWebhookSecret(key));
-    await setMyCommands();
+    // Admin commands (/admin) are registered only in admin private chats.
+    const { data: settingRows } = await context.supabase
+      .from("bot_settings")
+      .select("key,value")
+      .in("key", ["admin_telegram_ids", "admin_ids"]);
+    const adminChatIds = (settingRows ?? [])
+      .map((r: any) => String(r.value ?? ""))
+      .join(",")
+      .split(/[,\s]+/)
+      .filter(Boolean);
+    await setMyCommands(adminChatIds);
+
     const info = await getWebhookInfo();
     return {
       ok: Boolean(res.ok),
