@@ -69,18 +69,20 @@ async function say(chatId: number, text: string, kb?: Button[][]) {
   return res;
 }
 
+function adminIds(s: Record<string, string>) {
+  return `${s["admin_telegram_ids"] || ""},${s["admin_ids"] || ""}`
+    .split(/[,\s]+/)
+    .filter(Boolean);
+}
+
 async function isAdmin(telegramId: number, settings?: Record<string, string>) {
   const s = settings ?? (await getSettings());
-  return (s["admin_telegram_ids"] || "")
-    .split(/[,\s]+/)
-    .filter(Boolean)
-    .includes(String(telegramId));
+  return adminIds(s).includes(String(telegramId));
 }
 
 async function notifyAdmins(text: string) {
   const s = await getSettings();
-  const ids = (s["admin_telegram_ids"] || "").split(/[,\s]+/).filter(Boolean);
-  for (const id of ids) await sendMessage(id, text);
+  for (const id of adminIds(s)) await sendMessage(id, text);
 }
 
 /* ------------------------------------------------------------------- user */
