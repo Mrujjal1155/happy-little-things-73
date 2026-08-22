@@ -405,8 +405,8 @@ async function walletView(user: any) {
     `──────────────\n\n` +
     `<i>Choose a payment method below to add funds to your wallet.</i>`;
   const kb: Button[][] = [
-    [{ text: "🪙 Binance Pay", callback_data: "dep:binance" }],
-    [{ text: "💵 USDT BEP-20 · BSC", callback_data: "dep:usdt" }],
+    [{ text: "🪙 Binance Pay (auto)", callback_data: "dep:binance" }],
+    [{ text: "💵 USDT crypto (auto)", callback_data: "dep:usdt" }],
     [
       { text: "📱 bKash", callback_data: "dep:bkash" },
       { text: "📲 Nagad", callback_data: "dep:nagad" },
@@ -419,11 +419,147 @@ async function walletView(user: any) {
 }
 
 const DEPOSIT_LABEL: Record<string, { name: string; key: string }> = {
-  binance: { name: "Binance Pay", key: "binance_pay_id" },
-  usdt: { name: "USDT BEP-20 (BSC)", key: "usdt_bep20_address" },
   bkash: { name: "bKash", key: "bkash_number" },
   nagad: { name: "Nagad", key: "nagad_number" },
 };
+
+/* ---------------------------------------------------------------- binance */
+
+const NETWORKS: Record<string, string> = {
+  BSC: "USDT BEP-20 (BSC)",
+  TRX: "USDT TRC-20 (Tron)",
+};
+
+async function txUsed(tx: string) {
+  const { data } = await db.from("binance_used_txs").select("tx_id").eq("tx_id", tx).maybeSingle();
+  return !!data;
+}
+
+/** Unique USDT amount so concurrent deposits can be told apart. */
+function uniqueAmount(base: number) {
+  return Math.round((base + Math.floor(Math.random() * 99 + 1) / 10000) * 10000) / 10000;
+}
+
+async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amount: number, network?: string) {
+  const s = await getSettings();
+  const amountUsdt = uniqueAmount(amount);
+  let address = "";
+
+  if (kind === "payid") {
+    address = s["binance_pay"] || "";
+    if (!address) return { error: "Binance Pay ID is not configured. Please contact support." };
+  } else {
+    const { getDepositAddress } = await import("@/lib/binance.server");
+    const r = await getDepositAddress(network!);
+    if (!r.ok) return { error: r.error };
+    address = r.address;
+  }
+
+  const { data: row, error } = await db
+    .from("binance_deposits")
+    .insert({
+      telegram_id: chatId,
+      kind,
+      network: kind === "crypto" ? network : null,
+      address,
+      amount_usdt: amountUsdt,
+      expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    })
+    .select("*")
+    .single();
+  if (error || !row) return { error: "Could not create the deposit. Please try again." };
+  return { row };
+}
+
+function binanceView(row: any) {
+  const head =
+    row.kind === "payid"
+      ? `🪙 <b>Binance Pay</b>\n\nOpen Binance app → <b>Pay</b> → <b>Send</b> → paste this Pay ID:\n<code>${row.address}</code>`
+      : `💵 <b>${NETWORKS[row.network] ?? row.network}</b>\n\nSend USDT to this address on the <b>${row.network}</b> network only:\n<code>${row.address}</code>`;
+  const text =
+    `${head}\n\n` +
+    `Send exactly:\n<b>${Number(row.amount_usdt).toFixed(4)} USDT</b>\n\n` +
+    `⚠️ The amount must match <b>exactly</b> — it is how we identify your payment.\n` +
+    `⏳ Valid for 2 hours. After paying, tap <b>I have paid</b>.`;
+  const kb: Button[][] = [
+    [{ text: "✅ I have paid — verify", callback_data: `bchk:${row.id}` }],
+    [{ text: "❌ Cancel", callback_data: "wallet" }],
+  ];
+  return { text, kb };
+}
+
+async function verifyBinanceDeposit(chatId: number, id: string) {
+  const { data: row } = await db
+    .from("binance_deposits")
+    .select("*")
+    .eq("id", id)
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  if (!row) return { message: "❌ Deposit not found." };
+  if (row.status === "credited") return { message: "✅ This deposit was already credited." };
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await db.from("binance_deposits").update({ status: "expired" }).eq("id", id);
+    return { message: "⌛ This deposit request expired. Please start a new one." };
+  }
+
+  const { findCryptoDeposit, findPayTransaction } = await import("@/lib/binance.server");
+  const expected = Number(row.amount_usdt);
+  const result =
+    row.kind === "payid"
+      ? await findPayTransaction(expected, txUsed)
+      : await findCryptoDeposit(expected, row.network, txUsed);
+
+  if (!result.ok) {
+    return {
+      message:
+        `⏳ Payment not found yet.\n\n` +
+        `Make sure you sent exactly <b>${expected.toFixed(4)} USDT</b>. On-chain deposits can take a few minutes — tap verify again.` +
+        (result.error ? `\n\n<i>${escapeHtml(result.error)}</i>` : ""),
+      keyboard: [
+        [{ text: "🔄 Verify again", callback_data: `bchk:${id}` }],
+        [{ text: "⬅️ Wallet", callback_data: "wallet" }],
+      ] as Button[][],
+    };
+  }
+
+  const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: result.txId });
+  if (usedErr) return { message: "⏳ Payment not found yet. Please try again." };
+
+  const user = await getUser(chatId);
+  await db
+    .from("bot_users")
+    .update({ balance: Number(user.balance) + result.amount })
+    .eq("telegram_id", chatId);
+  await db
+    .from("binance_deposits")
+    .update({ status: "credited", tx_id: result.txId })
+    .eq("id", id);
+  await db.from("transactions").insert({
+    telegram_id: chatId,
+    type: "deposit",
+    amount: result.amount,
+    method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
+    reference: result.txId,
+    note: "Auto-verified via Binance API",
+  });
+  await db.from("payment_requests").insert({
+    telegram_id: chatId,
+    method: row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`,
+    amount: result.amount,
+    txid: result.txId,
+    status: "approved",
+    admin_note: "Auto-approved by Binance API",
+  });
+
+  return {
+    message: `🎉 Payment confirmed!\n\n${money(result.amount)} has been added to your balance.`,
+    keyboard: [
+      [{ text: "💰 Wallet", callback_data: "wallet" }],
+      [{ text: "🏠 Home", callback_data: "home" }],
+    ] as Button[][],
+  };
+}
+
 
 /* -------------------------------------------------------------- purchasing */
 
@@ -580,7 +716,26 @@ async function handleMessage(msg: any) {
   // state machine
   const state = (user.state ?? {}) as any;
   switch (state.awaiting) {
+    case "bin_amount": {
+      const amount = Number(text.replace(/[^0-9.]/g, ""));
+      if (!amount || amount <= 0) {
+        await say(chatId, "❌ Please send a valid amount, e.g. <code>10</code>");
+        return;
+      }
+      const kind = state.bin_kind === "crypto" ? "crypto" : "payid";
+      state.awaiting = null;
+      await setState(chatId, state);
+      const r = await startBinanceDeposit(chatId, kind, amount, state.bin_network);
+      if ("error" in r && r.error) {
+        await say(chatId, `❌ ${escapeHtml(r.error)}`, [[{ text: "⬅️ Wallet", callback_data: "wallet" }]]);
+        return;
+      }
+      const view = binanceView((r as any).row);
+      await say(chatId, view.text, view.kb);
+      return;
+    }
     case "deposit_amount": {
+
       const amount = Number(text.replace(/[^0-9.]/g, ""));
       if (!amount || amount <= 0) {
         await say(chatId, "❌ Please send a valid amount, e.g. <code>10</code>");
@@ -964,6 +1119,42 @@ async function handleCallback(cq: any) {
     return;
   }
 
+  if (data === "dep:binance") {
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_amount", bin_kind: "payid" });
+    await edit(
+      "🪙 <b>Binance Pay deposit</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.",
+      [[{ text: "⬅️ Back", callback_data: "wallet" }]],
+    );
+    return;
+  }
+
+  if (data === "dep:usdt") {
+    await edit("💵 <b>USDT deposit</b>\n\nChoose the network you will send from:", [
+      [{ text: "BEP-20 (BSC)", callback_data: "bnet:BSC" }],
+      [{ text: "TRC-20 (Tron)", callback_data: "bnet:TRX" }],
+      [{ text: "⬅️ Back", callback_data: "wallet" }],
+    ]);
+    return;
+  }
+
+  if (data.startsWith("bnet:")) {
+    const network = data.slice(5);
+    if (!NETWORKS[network]) return;
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_amount", bin_kind: "crypto", bin_network: network });
+    await edit(
+      `💵 <b>${NETWORKS[network]}</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.`,
+      [[{ text: "⬅️ Back", callback_data: "dep:usdt" }]],
+    );
+    return;
+  }
+
+  if (data.startsWith("bchk:")) {
+    const id = data.slice(5);
+    const r = await verifyBinanceDeposit(chatId, id);
+    await edit(r.message, r.keyboard ?? [[{ text: "⬅️ Wallet", callback_data: "wallet" }]]);
+    return;
+  }
+
   if (data.startsWith("dep:")) {
     const method = data.slice(4);
     const info = DEPOSIT_LABEL[method];
@@ -977,6 +1168,7 @@ async function handleCallback(cq: any) {
     );
     return;
   }
+
 
   if (data === "redeem") {
     await setState(chatId, { ...(user.state ?? {}), awaiting: "redeem" });
