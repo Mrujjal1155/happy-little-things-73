@@ -84,3 +84,7 @@ export function setWebhook(url: string, secret_token: string) {
 export function getWebhookInfo() {
   return tg("getWebhookInfo", {});
 }
+
+export function getMe() {
+  return tg("getMe", {});
+}

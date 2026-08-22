@@ -403,3 +403,48 @@ export const registerWebhook = createServerFn({ method: "POST" })
       info: info.result ?? null,
     };
   });
+
+export const checkBotToken = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const token = process.env["TELEGRAM_BOT_TOKEN"];
+    const connKey = process.env["TELEGRAM_API_KEY"];
+    if (!token && !connKey) {
+      return {
+        status: "missing" as const,
+        message:
+          "TELEGRAM_BOT_TOKEN is not configured yet. Add the bot token from @BotFather, then reload this page.",
+      };
+    }
+    if (token && !/^\d{6,}:[A-Za-z0-9_-]{30,}$/.test(token.trim())) {
+      return {
+        status: "malformed" as const,
+        message:
+          "The saved TELEGRAM_BOT_TOKEN does not look like a valid token. It should look like 123456789:AA... — copy it again from @BotFather.",
+      };
+    }
+    try {
+      const { getMe } = await import("@/lib/telegram.server");
+      const me = await getMe();
+      if (!me.ok) {
+        return {
+          status: "invalid" as const,
+          message:
+            me.description?.includes("Unauthorized") || me.description?.includes("401")
+              ? "Telegram rejected this token (Unauthorized). The token is wrong or was revoked — generate a new one with /token in @BotFather and update the secret."
+              : `Telegram could not verify the bot: ${me.description ?? "unknown error"}`,
+        };
+      }
+      return {
+        status: "ok" as const,
+        username: me.result?.username as string | undefined,
+        message: `Connected as @${me.result?.username ?? "unknown"}`,
+      };
+    } catch (e) {
+      return {
+        status: "error" as const,
+        message: e instanceof Error ? e.message : "Could not reach Telegram right now. Try again.",
+      };
+    }
+  });
