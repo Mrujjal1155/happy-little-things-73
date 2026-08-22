@@ -94,6 +94,105 @@ function CodesPage() {
           </table>
         </CardContent>
       </Card>
+
+      <CouponsCard />
     </AdminShell>
   );
 }
+
+function CouponsCard() {
+  const qc = useQueryClient();
+  const fetchCoupons = useServerFn(listCoupons);
+  const save = useServerFn(saveCoupon);
+  const toggle = useServerFn(toggleCoupon);
+  const [code, setCode] = useState("");
+  const [percent, setPercent] = useState(10);
+  const [amountOff, setAmountOff] = useState(0);
+  const [maxUses, setMaxUses] = useState(0);
+  const { data } = useQuery({ queryKey: ["coupons"], queryFn: () => fetchCoupons() });
+
+  async function submit() {
+    try {
+      await save({ data: { code, percent: Number(percent), amount_off: Number(amountOff), max_uses: Number(maxUses) } });
+      setCode("");
+      qc.invalidateQueries({ queryKey: ["coupons"] });
+      toast.success("Coupon saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>Discount coupons</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label>Code</Label>
+            <Input className="w-36 uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="SAVE10" />
+          </div>
+          <div className="space-y-1">
+            <Label>Percent %</Label>
+            <Input type="number" className="w-24" value={percent} onChange={(e) => setPercent(Number(e.target.value))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Flat off ($)</Label>
+            <Input type="number" step="0.01" className="w-24" value={amountOff} onChange={(e) => setAmountOff(Number(e.target.value))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Max uses (0 = ∞)</Label>
+            <Input type="number" className="w-28" value={maxUses} onChange={(e) => setMaxUses(Number(e.target.value))} />
+          </div>
+          <Button onClick={submit}>Save coupon</Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className="py-2">Code</th>
+                <th>Discount</th>
+                <th>Used</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {(data ?? []).map((c: any) => (
+                <tr key={c.id} className="border-t border-border">
+                  <td className="py-2 font-mono">{c.code}</td>
+                  <td>
+                    {Number(c.percent) > 0 ? `${c.percent}%` : ""}
+                    {Number(c.amount_off) > 0 ? ` ${money(c.amount_off)}` : ""}
+                  </td>
+                  <td>
+                    {c.used_count}
+                    {Number(c.max_uses) > 0 ? ` / ${c.max_uses}` : ""}
+                  </td>
+                  <td>
+                    <Badge variant={c.is_active ? "default" : "secondary"}>{c.is_active ? "active" : "off"}</Badge>
+                  </td>
+                  <td className="text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await toggle({ data: { id: c.id, is_active: !c.is_active } });
+                        qc.invalidateQueries({ queryKey: ["coupons"] });
+                      }}
+                    >
+                      {c.is_active ? "Disable" : "Enable"}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
