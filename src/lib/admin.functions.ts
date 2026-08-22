@@ -399,7 +399,11 @@ export const registerWebhook = createServerFn({ method: "POST" })
     const { createHash } = await import("crypto");
     const deriveTelegramWebhookSecret = (k: string) =>
       createHash("sha256").update(`telegram-webhook:${k}`).digest("base64url");
-    const url = `${data.origin.replace(/\/$/, "")}/api/public/telegram/webhook`;
+    // The id-preview host redirects through auth; use the stable public dev host instead.
+    const origin = data.origin
+      .replace(/\/$/, "")
+      .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2");
+    const url = `${origin}/api/public/telegram/webhook`;
     const res = await setWebhook(url, deriveTelegramWebhookSecret(key));
     const info = await getWebhookInfo();
     return {
