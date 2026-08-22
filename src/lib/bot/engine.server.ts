@@ -467,24 +467,37 @@ async function startBinanceDeposit(
 ) {
   const s = await getSettings();
   const amountUsdt = uniqueAmount(amount);
+  const personal = (s["binance_mode"] ?? "live") === "personal";
   let address = "";
 
   if (kind === "payid") {
-    address = s["binance_pay"] || "";
-    if (!address) return { error: "Binance Pay ID is not configured. Please contact support." };
+    address = (s["binance_pay"] || "").trim();
+    if (!address)
+      return { error: "Binance Pay is not set up yet. Please contact support or use another payment method." };
   } else {
     const fallbackKey = network === "TRX" ? "usdt_trc20" : "usdt_bep20";
-    try {
-      const { getDepositAddress } = await import("@/lib/binance.server");
-      const r = await getDepositAddress(network!);
-      if (r.ok) address = r.address;
-    } catch {
-      /* fall back to the address configured by the admin */
+    address = (s[fallbackKey] || "").trim();
+    if (!address && !personal) {
+      // Only ask Binance when the admin has not pinned a wallet address.
+      try {
+        const { getDepositAddress } = await import("@/lib/binance.server");
+        const r = await getDepositAddress(network!);
+        if (r.ok) address = r.address;
+      } catch {
+        /* Binance can block the server (403) — fall through to the manual address */
+      }
     }
-    if (!address) address = (s[fallbackKey] || "").trim();
-    if (!address)
-      return { error: `No ${network} USDT deposit address is configured yet. Please contact support.` };
+    if (!address) {
+      const label = network === "TRX" ? "USDT TRC-20" : "USDT BEP-20";
+      await notifyAdmins(
+        `⚠️ <b>${label} deposit address missing</b>\nA user tried to deposit but no wallet address is configured.\nAdd it in Dashboard → Settings → Binance Setup.`,
+      );
+      return {
+        error: `${label} deposits are temporarily unavailable. Please use another payment method or contact support.`,
+      };
+    }
   }
+
 
   const { data: row, error } = await db
     .from("binance_deposits")
