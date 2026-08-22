@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { checkBotToken, getBotSettings, registerWebhook, saveBotSettings } from "@/lib/admin.functions";
+import { checkBinanceStatus, checkBotToken, getBotSettings, registerWebhook, saveBotSettings } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/AdminShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/settings")({
 const FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "bot_name", label: "Bot name" },
   { key: "welcome_text", label: "Welcome text", long: true },
-  { key: "binance_pay", label: "Binance Pay ID" },
+  { key: "binance_pay", label: "Binance Pay ID (auto deposits)" },
   { key: "usdt_bep20", label: "USDT BEP-20 address" },
   { key: "bkash_number", label: "bKash number" },
   { key: "nagad_number", label: "Nagad number" },
@@ -46,10 +46,16 @@ function SettingsPage() {
   const save = useServerFn(saveBotSettings);
   const hook = useServerFn(registerWebhook);
   const checkToken = useServerFn(checkBotToken);
+  const checkBinance = useServerFn(checkBinanceStatus);
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => fetchSettings() });
   const { data: tokenStatus, isLoading: tokenLoading } = useQuery({
     queryKey: ["bot-token-status"],
     queryFn: () => checkToken(),
+    refetchOnWindowFocus: false,
+  });
+  const { data: binanceStatus } = useQuery({
+    queryKey: ["binance-status"],
+    queryFn: () => checkBinance(),
     refetchOnWindowFocus: false,
   });
   const tokenOk = tokenStatus?.status === "ok";
@@ -113,6 +119,21 @@ function SettingsPage() {
               )}
             </>
           )}
+        </CardContent>
+      </Card>
+      <Card className={binanceStatus ? (binanceStatus.ok ? "mb-4 border-primary/40" : "mb-4 border-destructive/50") : "mb-4"}>
+        <CardHeader>
+          <CardTitle>Binance auto-deposits</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className={`text-sm ${binanceStatus?.ok ? "text-primary" : "text-destructive"}`}>
+            {binanceStatus ? `${binanceStatus.ok ? "✅ " : "⚠️ "}${binanceStatus.message}` : "Checking Binance API keys…"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Binance Pay and on-chain USDT (BEP-20 / TRC-20) deposits are verified automatically through the
+            Binance API using BINANCE_API_KEY and BINANCE_API_SECRET. Set your Pay ID below for Pay ID deposits;
+            crypto addresses are fetched from Binance automatically.
+          </p>
         </CardContent>
       </Card>
       <Card>
