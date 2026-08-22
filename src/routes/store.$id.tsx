@@ -71,7 +71,7 @@ function ProductPage() {
   const off = oldPrice > Number(product?.price ?? 0) ? Math.round(((oldPrice - Number(product?.price)) / oldPrice) * 100) : 0;
   const included = (product?.description ?? "")
     .split("\n")
-    .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+    .map((l: string) => l.replace(/^[-•*]\s*/, "").trim())
     .filter(Boolean)
     .slice(0, 6);
 
@@ -203,7 +203,7 @@ function ProductPage() {
               <div className="mt-7">
                 <h2 className="text-base font-bold">What&apos;s Included</h2>
                 <ul className="mt-3 space-y-2 text-sm">
-                  {included.map((line) => (
+                  {included.map((line: string) => (
                     <li key={line} className="flex items-start gap-2">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                       <span>{line}</span>

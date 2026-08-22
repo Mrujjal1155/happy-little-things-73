@@ -10,9 +10,8 @@ import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/store/")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    c: typeof search['c'] === "string" ? (search['c'] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    typeof search["c"] === "string" ? { c: search["c"] as string } : {},
   head: () => ({
     meta: [
       { title: "All Products — QORIX Store" },
