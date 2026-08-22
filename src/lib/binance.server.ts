@@ -39,6 +39,13 @@ export async function validateCreds(creds: BinanceCreds) {
   return { ok: true as const, message: "Binance API keys are valid." };
 }
 
+/** Never leak provider HTML (CloudFront blocks etc.) into user-facing messages. */
+function cleanError(msg: unknown, status: number) {
+  const t = typeof msg === "string" ? msg.trim() : "";
+  if (t && !t.startsWith("<")) return t.slice(0, 200);
+  return `Binance API unreachable (HTTP ${status}).`;
+}
+
 async function signedGet(path: string, params: Record<string, string | number>, creds: BinanceCreds) {
   const query = new URLSearchParams({
     ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
@@ -58,7 +65,7 @@ async function signedGet(path: string, params: Record<string, string | number>, 
   }
   if (!res.ok) {
     console.error(`Binance ${path} failed [${res.status}]: ${body}`);
-    return { ok: false as const, status: res.status, error: json?.msg ?? body, data: json };
+    return { ok: false as const, status: res.status, error: cleanError(json?.msg, res.status), data: json };
   }
   return { ok: true as const, status: res.status, data: json, error: null };
 }
@@ -119,4 +126,31 @@ export async function checkBinanceKeys() {
   if (!creds) return { ok: false as const, message: "API Key / Secret Key সেভ করা নেই।", saved: false as const };
   const r = await validateCreds(creds);
   return { ...r, saved: true as const };
+}
+
+/** Match one specific transaction id against Binance Pay + on-chain deposit history. */
+export async function findByTxId(txId: string): Promise<{ ok: true; amount: number } | { ok: false; error?: string }> {
+  const creds = await getCreds();
+  if (!creds) return { ok: false, error: "Binance API keys are not configured." };
+  const needle = txId.trim().toLowerCase();
+  const start = Date.now() - 24 * 60 * 60 * 1000;
+
+  const pay = await signedGet("/sapi/v1/pay/transactions", { limit: 100, startTime: start }, creds);
+  if (pay.ok && Array.isArray(pay.data?.data)) {
+    for (const t of pay.data.data) {
+      if (String(t.transactionId ?? "").toLowerCase() === needle) return { ok: true, amount: Number(t.amount) };
+    }
+  }
+
+  const dep = await signedGet("/sapi/v1/capital/deposit/hisrec", { coin: "USDT", limit: 100, startTime: start }, creds);
+  if (dep.ok && Array.isArray(dep.data)) {
+    for (const d of dep.data) {
+      if (String(d.txId ?? d.id ?? "").toLowerCase() === needle && [0, 1, 6].includes(Number(d.status))) {
+        return { ok: true, amount: Number(d.amount) };
+      }
+    }
+  }
+
+  const err = !pay.ok && !dep.ok ? String(pay.error ?? dep.error) : undefined;
+  return err ? { ok: false, error: err } : { ok: false };
 }
