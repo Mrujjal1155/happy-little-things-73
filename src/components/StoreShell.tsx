@@ -1,19 +1,30 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Clock, Headphones, MessageCircle, Search, ShieldCheck, ShoppingCart } from "lucide-react";
+import {
+  Clock,
+  Headphones,
+  LayoutGrid,
+  LogIn,
+  MessageCircle,
+  PackageSearch,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+} from "lucide-react";
 import logo from "@/assets/qorix-logo.png";
 import { ThemeToggle } from "@/components/theme";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
-const CATEGORY_LINKS = ["AI Tools", "Creative", "Productivity", "VPN", "Streaming", "Social Services"];
+const CATEGORY_LINKS = ["AI Tools", "Creative", "Productivity", "VPN", "Streaming", "Social"];
 
 export function StoreShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5">
           <Link to="/" className="flex shrink-0 items-center gap-2">
             <img src={logo} alt="QORIX Store logo" className="h-9 w-9 rounded-xl object-cover" />
-            <span className="hidden text-base font-bold leading-tight tracking-tight sm:block">
+            <span className="hidden text-sm font-bold leading-tight tracking-tight sm:block">
               QORIX
               <span className="block text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">store</span>
             </span>
@@ -21,28 +32,58 @@ export function StoreShell({ children }: { children: ReactNode }) {
 
           <Link
             to="/store"
-            className="group hidden min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 md:flex"
+            className="hidden min-w-0 items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 md:flex md:w-56"
           >
             <Search className="h-4 w-4" />
             Search products…
           </Link>
 
-          <nav className="ml-auto flex items-center gap-1 text-sm">
+          <Link
+            to="/store"
+            search={{ c: "Social" }}
+            className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/25 lg:inline-flex"
+          >
+            <CategoryIcon name="Social" className="h-4 w-4" /> Social
+          </Link>
+
+          <Link
+            to="/store"
+            search={{ c: undefined }}
+            className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/25 lg:inline-flex"
+          >
+            <LayoutGrid className="h-4 w-4" /> Categories
+          </Link>
+
+          <nav className="hidden items-center gap-0.5 xl:flex">
+            {CATEGORY_LINKS.slice(0, 4).map((c) => (
+              <Link
+                key={c}
+                to="/store"
+                search={{ c }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <CategoryIcon name={c} className="h-4 w-4" /> {c}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-0.5">
+            <ThemeToggle />
             <Link
-              to="/store"
-              className="hidden rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:block"
-              activeProps={{ className: "bg-primary text-primary-foreground" }}
+              to="/auth"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              Categories
+              <LogIn className="h-4 w-4" />
+              <span className="hidden sm:inline">Log in</span>
             </Link>
             <Link
               to="/track"
-              className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               activeProps={{ className: "bg-secondary text-foreground" }}
             >
-              Track Order
+              <PackageSearch className="h-4 w-4" />
+              <span className="hidden sm:inline">Track Order</span>
             </Link>
-            <ThemeToggle />
             <Link
               to="/store"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -50,7 +91,7 @@ export function StoreShell({ children }: { children: ReactNode }) {
             >
               <ShoppingCart className="h-4 w-4" />
             </Link>
-          </nav>
+          </div>
         </div>
       </header>
 
@@ -86,7 +127,7 @@ export function StoreShell({ children }: { children: ReactNode }) {
               <ul className="mt-3 space-y-2 text-muted-foreground">
                 {CATEGORY_LINKS.map((c) => (
                   <li key={c}>
-                    <Link to="/store" className="transition-colors hover:text-primary">
+                    <Link to="/store" search={{ c }} className="transition-colors hover:text-primary">
                       {c}
                     </Link>
                   </li>
