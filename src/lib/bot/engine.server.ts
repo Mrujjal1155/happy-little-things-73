@@ -150,7 +150,11 @@ async function getUser(telegramId: number) {
 
 function homeKeyboard(): Button[][] {
   return [
-    [{ text: "🛒 SHOP", callback_data: "shop:0" }],
+    [
+      { text: "🛒 SHOP", callback_data: "shop:0" },
+      { text: "🧺 Cart", callback_data: "cart" },
+    ],
+
     [
       { text: "💰 Wallet", callback_data: "wallet" },
       { text: "🎁 Freebies", callback_data: "page:freebies_text" },
@@ -221,9 +225,11 @@ async function shopView(page: number) {
   if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
   if (nav.length) kb.push(nav);
   kb.push([
+    { text: "🧺 Cart", callback_data: "cart" },
     { text: "🔄 Refresh", callback_data: `shop:${page}` },
     { text: "🏠 Home", callback_data: "home" },
   ]);
+
   const text =
     `<b>P R O D U C T S</b>\n\n` +
     `🟢 <b>${inStock} of ${products.length}</b> in stock\n` +
@@ -262,15 +268,132 @@ async function productView(productId: string) {
 
   const available = p.delivery_type === "manual" || stock > 0;
   const kb: Button[][] = [];
-  if (available) kb.push([{ text: "🛒 Buy Now", callback_data: `qty:${p.id}` }]);
+  if (available)
+    kb.push([
+      { text: "🛒 Buy Now", callback_data: `qty:${p.id}` },
+      { text: "➕ Add to Cart", callback_data: `cadd:${p.id}:1` },
+    ]);
   else kb.push([{ text: "❌ Out of stock", callback_data: `p:${p.id}` }]);
   kb.push([
     { text: "🔄 Refresh", callback_data: `p:${p.id}` },
     { text: "⬅️ Back", callback_data: "shop:0" },
   ]);
-  kb.push([{ text: "🏠 Home", callback_data: "home" }]);
+  kb.push([
+    { text: "🧺 Cart", callback_data: "cart" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
   return { text, kb };
 }
+
+/* ------------------------------------------------------------------- cart */
+
+type CartLine = { product_id: string; qty: number };
+
+function readCart(user: any): CartLine[] {
+  const raw = (user?.state ?? {}).cart;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l: any) => l && typeof l.product_id === "string" && Number(l.qty) > 0)
+    .map((l: any) => ({ product_id: l.product_id, qty: Math.min(999, Math.floor(Number(l.qty))) }));
+}
+
+async function writeCart(telegramId: number, cart: CartLine[]) {
+  const { data } = await db
+    .from("bot_users")
+    .select("state")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  const state = (data?.state ?? {}) as any;
+  state.cart = cart;
+  await db.from("bot_users").update({ state }).eq("telegram_id", telegramId);
+}
+
+async function cartDetails(user: any) {
+  const cart = readCart(user);
+  if (!cart.length) return { lines: [] as any[], total: 0 };
+  const { data: products } = await db
+    .from("products")
+    .select("*")
+    .in(
+      "id",
+      cart.map((l) => l.product_id),
+    );
+  const { data: stock } = await db
+    .from("stock_items")
+    .select("product_id")
+    .eq("is_sold", false)
+    .in(
+      "product_id",
+      cart.map((l) => l.product_id),
+    );
+  const counts: Record<string, number> = {};
+  for (const s of stock ?? []) counts[s.product_id] = (counts[s.product_id] ?? 0) + 1;
+
+  const lines = cart
+    .map((l) => {
+      const p = (products ?? []).find((x: any) => x.id === l.product_id);
+      if (!p) return null;
+      return {
+        product: p,
+        qty: l.qty,
+        stock: counts[p.id] ?? 0,
+        subtotal: Number(p.price) * l.qty,
+      };
+    })
+    .filter(Boolean) as any[];
+
+  const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
+  return { lines, total };
+}
+
+async function cartView(user: any) {
+  const { lines, total } = await cartDetails(user);
+  if (!lines.length) {
+    return {
+      text: `<b>Y O U R   C A R T</b>\n\n🧺 Your cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
+      kb: [
+        [{ text: "🛒 SHOP", callback_data: "shop:0" }],
+        [{ text: "🏠 Home", callback_data: "home" }],
+      ] as Button[][],
+    };
+  }
+
+  let text = `<b>Y O U R   C A R T</b>\n──────────────\n`;
+  const kb: Button[][] = [];
+  let issues = 0;
+  for (const l of lines) {
+    const short = l.product.delivery_type === "auto" && l.stock < l.qty;
+    if (short) issues++;
+    text +=
+      `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n` +
+      `   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>` +
+      (short ? `  ⚠️ only ${l.stock} in stock` : "") +
+      `\n`;
+    kb.push([
+      { text: "➖", callback_data: `cdec:${l.product.id}` },
+      { text: `${l.qty}× ${l.product.name}`.slice(0, 30), callback_data: `p:${l.product.id}` },
+      { text: "➕", callback_data: `cinc:${l.product.id}` },
+      { text: "🗑", callback_data: `crm:${l.product.id}` },
+    ]);
+  }
+  text +=
+    `──────────────\n🧾 Total: <b>${money(total)}</b>\n` +
+    `💰 Balance: ${money(user.balance)}\n`;
+  if (Number(user.balance) < total) text += `\n⚠️ Not enough balance — add funds in Wallet.\n`;
+  if (issues) text += `\n⚠️ Some items exceed available stock.\n`;
+
+  kb.push([{ text: `✅ Checkout · ${money(total)}`, callback_data: "cchk" }]);
+  kb.push([
+    { text: "🛒 Continue shopping", callback_data: "shop:0" },
+    { text: "🧹 Clear cart", callback_data: "cclear" },
+  ]);
+  kb.push([
+    { text: "💰 Wallet", callback_data: "wallet" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
+  return { text, kb };
+}
+
 
 async function walletView(user: any) {
   const text =
@@ -631,6 +754,73 @@ async function doBuy(chatId: number, productId: string, qty: number) {
   await announcePurchase(user, product, qty);
 }
 
+async function doCheckout(chatId: number) {
+  let user = await getUser(chatId);
+  if (!user) return;
+  const { lines, total } = await cartDetails(user);
+  if (!lines.length) {
+    await say(chatId, "🧺 Your cart is empty.", [[{ text: "🛒 SHOP", callback_data: "shop:0" }]]);
+    return;
+  }
+  if (Number(user.balance) < total) {
+    await say(
+      chatId,
+      `❌ Insufficient balance. Cart total is ${money(total)} but your balance is ${money(user.balance)}.`,
+      [
+        [{ text: "💰 Add funds", callback_data: "wallet" }],
+        [{ text: "🧺 Cart", callback_data: "cart" }],
+      ],
+    );
+    return;
+  }
+
+  const ok: string[] = [];
+  const failed: string[] = [];
+  const remaining: CartLine[] = [];
+  let deliveries = "";
+  let paid = 0;
+
+  for (const line of lines) {
+    user = await getUser(chatId);
+    const result: any = await completePurchase(user, line.product, line.qty);
+    if (result.error) {
+      failed.push(`• ${line.product.name} — ${result.error}`);
+      remaining.push({ product_id: line.product.id, qty: line.qty });
+      continue;
+    }
+    paid += Number(result.total);
+    ok.push(
+      `• #${result.order?.order_no} — ${line.qty}× ${line.product.name} · ${money(result.total)}` +
+        (result.status === "completed" ? "" : " (manual, pending)"),
+    );
+    if (result.delivered) {
+      deliveries += `\n<b>${line.product.name}</b>\n<pre>${escapeHtml(result.delivered)}</pre>`;
+    }
+    if (result.status !== "completed") {
+      await notifyAdmins(
+        `🕐 <b>Manual order #${result.order?.order_no}</b>\nUser: <code>${chatId}</code>\n${line.qty}× ${line.product.name}`,
+      );
+    }
+    await announcePurchase(user, line.product, line.qty);
+  }
+
+  await writeCart(chatId, remaining);
+
+  let text = `<b>C H E C K O U T</b>\n──────────────\n`;
+  if (ok.length) text += `✅ <b>Order placed</b>\n${ok.join("\n")}\n\n💳 Paid: <b>${money(paid)}</b>\n`;
+  if (failed.length) text += `\n⚠️ <b>Not processed</b>\n${failed.join("\n")}\n<i>These items stay in your cart.</i>\n`;
+  if (deliveries) text += `\n🎁 <b>Your items</b>\n${deliveries}`;
+
+  const kb: Button[][] = [];
+  if (remaining.length) kb.push([{ text: "🧺 Cart", callback_data: "cart" }]);
+  kb.push([
+    { text: "🛒 SHOP", callback_data: "shop:0" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
+  await say(chatId, text, kb);
+}
+
+
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -674,9 +864,83 @@ async function handleCallback(cq: any) {
       [1, 2, 3].map((n) => ({ text: `${n}×`, callback_data: `buy:${productId}:${n}` })),
       [5, 10].map((n) => ({ text: `${n}×`, callback_data: `buy:${productId}:${n}` })),
       [{ text: "✏️ Custom quantity", callback_data: `cq:${productId}` }],
+      [
+        { text: "➕ Add 1 to cart", callback_data: `cadd:${productId}:1` },
+        { text: "➕ Add 5", callback_data: `cadd:${productId}:5` },
+      ],
       [{ text: "⬅️ Back", callback_data: `p:${productId}` }],
     ];
     await edit("🔢 <b>Select quantity</b>", kb);
+    return;
+  }
+
+  if (data === "cart") {
+    const fresh = await getUser(chatId);
+    const view = await cartView(fresh);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (
+    data.startsWith("cadd:") ||
+    data.startsWith("cinc:") ||
+    data.startsWith("cdec:") ||
+    data.startsWith("crm:")
+  ) {
+    const [op, productId, n] = data.split(":");
+    const fresh = await getUser(chatId);
+    const cart = readCart(fresh);
+    const idx = cart.findIndex((l) => l.product_id === productId);
+    if (op === "crm") {
+      if (idx >= 0) cart.splice(idx, 1);
+    } else if (op === "cdec") {
+      if (idx >= 0) {
+        cart[idx]!.qty -= 1;
+        if (cart[idx]!.qty < 1) cart.splice(idx, 1);
+      }
+    } else {
+      const add = op === "cadd" ? Math.max(1, Number(n) || 1) : 1;
+      if (idx >= 0) cart[idx]!.qty = Math.min(999, cart[idx]!.qty + add);
+      else cart.push({ product_id: productId!, qty: add });
+    }
+    await writeCart(chatId, cart);
+    const updated = await getUser(chatId);
+    const view = await cartView(updated);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cclear") {
+    await writeCart(chatId, []);
+    const updated = await getUser(chatId);
+    const view = await cartView(updated);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cchk") {
+    const fresh = await getUser(chatId);
+    const { lines, total } = await cartDetails(fresh);
+    if (!lines.length) {
+      const view = await cartView(fresh);
+      await edit(view.text, view.kb);
+      return;
+    }
+    const summary = lines
+      .map((l) => `• ${l.qty}× ${l.product.name} — ${money(l.subtotal)}`)
+      .join("\n");
+    await edit(
+      `<b>C O N F I R M   O R D E R</b>\n──────────────\n${summary}\n──────────────\n🧾 Total: <b>${money(total)}</b>\n💰 Balance: ${money(fresh.balance)}\n\n<i>Payment is taken from your wallet balance.</i>`,
+      [
+        [{ text: "✅ Confirm & Pay", callback_data: "cgo" }],
+        [{ text: "⬅️ Back to cart", callback_data: "cart" }],
+      ],
+    );
+    return;
+  }
+
+  if (data === "cgo") {
+    await doCheckout(chatId);
     return;
   }
 
@@ -685,6 +949,7 @@ async function handleCallback(cq: any) {
     await say(chatId, "✏️ Send the quantity you want to buy.");
     return;
   }
+
 
   if (data.startsWith("buy:")) {
     const [, productId, n] = data.split(":");
