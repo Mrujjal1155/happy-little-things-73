@@ -4,14 +4,19 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
+  Bitcoin,
   CheckCircle2,
   Clock,
+  Coins,
   Copy,
+  CreditCard,
   Eye,
   PartyPopper,
   ShieldCheck,
   ShoppingCart,
   Star,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { getStoreProduct, getStorePayInfo, placeWebsiteOrder } from "@/lib/shop.functions";
