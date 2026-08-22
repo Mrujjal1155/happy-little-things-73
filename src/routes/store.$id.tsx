@@ -233,65 +233,140 @@ function ProductPage() {
 
         {/* Checkout */}
         {checkout && (
-          <Card id="checkout" className="mt-12 bg-card/70">
-            <CardHeader>
-              <CardTitle>Checkout · {priceTag(total)}</CardTitle>
+          <Card id="checkout" className="mt-12 overflow-hidden glass-panel tilt-in">
+            <CardHeader className="border-b border-border/60 bg-primary/5">
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary" /> Secure Crypto Checkout
+                </span>
+                <span className="text-primary">{priceTag(total)}</span>
+              </CardTitle>
+              <div className="mt-4 flex items-center gap-2">
+                {["Details", "Pay", "Confirm"].map((s, i) => {
+                  const active = step >= i + 1;
+                  return (
+                    <div key={s} className="flex flex-1 items-center gap-2">
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className={`text-xs font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}>{s}</span>
+                      {i < 2 && <span className={`h-px flex-1 ${step > i + 1 ? "bg-primary" : "bg-border"}`} />}
+                    </div>
+                  );
+                })}
+              </div>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <Label>Your name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
-              </div>
-              <div className="space-y-1">
-                <Label>Email (delivery + tracking)</Label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@mail.com" />
-              </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label>Payment method</Label>
-                <div className="flex flex-wrap gap-2">
-                  {METHODS.map((m) => (
-                    <Button
-                      key={m.id}
-                      size="sm"
-                      variant={method === m.id ? "default" : "outline"}
-                      onClick={() => setMethod(m.id)}
-                    >
-                      {m.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-3 text-sm md:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Amount</span>
-                  <button className="inline-flex items-center gap-1.5 font-semibold text-primary" onClick={() => copy(total.toFixed(2))}>
-                    {total.toFixed(2)} USDT <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-muted-foreground">Send to</span>
-                  <button
-                    className="block w-full break-all rounded bg-background p-2 text-left font-mono text-xs"
-                    onClick={() => address && copy(address)}
+            <CardContent className="pt-6">
+              {step === 1 && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label>Your name</Label>
+                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Email (delivery + tracking)</Label>
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@mail.com" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Payment method</Label>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {METHODS.map((m) => {
+                        const on = method === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setMethod(m.id)}
+                            className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
+                              on ? "border-primary bg-primary/10 card-glow" : "border-border bg-card"
+                            }`}
+                          >
+                            <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${on ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                              <m.icon className="h-4 w-4" />
+                            </span>
+                            <p className="mt-3 text-sm font-semibold">{m.label}</p>
+                            <p className="text-xs text-muted-foreground">{m.hint}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    className="md:col-span-2"
+                    disabled={!name.trim() || !email.trim()}
+                    onClick={() => setStep(2)}
                   >
-                    {address || "Not configured yet — contact support"}
-                  </button>
+                    Continue to payment <ArrowRight className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-1 md:col-span-2">
-                <Label>Transaction ID</Label>
-                <Input value={txid} onChange={(e) => setTxid(e.target.value)} placeholder="Paste TXID / Binance order id" />
-              </div>
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Exact amount</p>
+                    <button
+                      className="mt-1 inline-flex items-center gap-2 text-3xl font-extrabold text-primary"
+                      onClick={() => copy(total.toFixed(2))}
+                    >
+                      {total.toFixed(2)} USDT <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Send to · {METHODS.find((m) => m.id === method)!.label}
+                    </p>
+                    <button
+                      className="mt-2 block w-full break-all rounded-xl bg-muted/60 p-3 text-left font-mono text-xs hover:bg-muted"
+                      onClick={() => address && copy(address)}
+                    >
+                      {address || "Not configured yet — contact support"}
+                    </button>
+                    <p className="mt-2 text-xs text-muted-foreground">Tap to copy. Send the exact amount, then continue.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setStep(1)}>
+                      <ArrowLeft className="h-4 w-4" /> Back
+                    </Button>
+                    <Button className="flex-1" onClick={() => setStep(3)}>
+                      I have paid <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-              <Button className="w-full md:col-span-2" disabled={!product || mut.isPending} onClick={() => mut.mutate()}>
-                {mut.isPending ? "Placing order…" : `Place order · ${priceTag(total)}`}
-              </Button>
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <Label>Transaction ID</Label>
+                    <Input value={txid} onChange={(e) => setTxid(e.target.value)} placeholder="Paste TXID / Binance order id" />
+                    <p className="text-xs text-muted-foreground">
+                      We verify the transaction automatically and deliver to {email || "your email"}.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setStep(2)}>
+                      <ArrowLeft className="h-4 w-4" /> Back
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={!product || !txid.trim() || mut.isPending}
+                      onClick={() => mut.mutate()}
+                    >
+                      {mut.isPending ? "Placing order…" : `Place order · ${priceTag(total)}`}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
+
       </section>
     </StoreShell>
   );
