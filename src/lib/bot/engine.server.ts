@@ -465,10 +465,17 @@ async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amo
     address = s["binance_pay"] || "";
     if (!address) return { error: "Binance Pay ID is not configured. Please contact support." };
   } else {
-    const { getDepositAddress } = await import("@/lib/binance.server");
-    const r = await getDepositAddress(network!);
-    if (!r.ok) return { error: r.error };
-    address = r.address;
+    const fallbackKey = network === "TRX" ? "usdt_trc20" : "usdt_bep20";
+    try {
+      const { getDepositAddress } = await import("@/lib/binance.server");
+      const r = await getDepositAddress(network!);
+      if (r.ok) address = r.address;
+    } catch {
+      /* fall back to the address configured by the admin */
+    }
+    if (!address) address = (s[fallbackKey] || "").trim();
+    if (!address)
+      return { error: `No ${network} USDT deposit address is configured yet. Please contact support.` };
   }
 
   const { data: row, error } = await db
@@ -494,11 +501,12 @@ function binanceView(row: any) {
       : `💵 <b>${NETWORKS[row.network] ?? row.network}</b>\n\nSend USDT to this address on the <b>${row.network}</b> network only:\n<code>${row.address}</code>`;
   const text =
     `${head}\n\n` +
-    `Send exactly:\n<b>${Number(row.amount_usdt).toFixed(4)} USDT</b>\n\n` +
+    `Amount to send (tap to copy):\n<code>${Number(row.amount_usdt).toFixed(4)}</code>\n\n` +
     `⚠️ The amount must match <b>exactly</b> — it is how we identify your payment.\n` +
-    `⏳ Valid for 2 hours. After paying, tap <b>I have paid</b>.`;
+    `⏳ Valid for 2 hours. After paying, send your <b>Transaction ID</b>.`;
   const kb: Button[][] = [
-    [{ text: "✅ I have paid — verify", callback_data: `bchk:${row.id}` }],
+    [{ text: "🧾 Submit transaction ID", callback_data: `btx:${row.id}` }],
+    [{ text: "✅ I have paid — auto verify", callback_data: `bchk:${row.id}` }],
     [{ text: "❌ Cancel", callback_data: "wallet" }],
   ];
   return { text, kb };
@@ -576,6 +584,83 @@ async function verifyBinanceDeposit(chatId: number, id: string) {
   };
 }
 
+
+
+/** User-supplied transaction id: auto-match against Binance, else queue for admin. */
+async function submitBinanceTxid(chatId: number, depId: string, txid: string, username: string | null) {
+  const back: Button[][] = [[{ text: "💰 Wallet", callback_data: "wallet" }], [{ text: "🏠 Home", callback_data: "home" }]];
+  if (!txid || txid.length < 6) {
+    return { message: "❌ That does not look like a valid transaction ID. Please try again.", keyboard: back };
+  }
+  const { data: row } = await db
+    .from("binance_deposits")
+    .select("*")
+    .eq("id", depId)
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  if (!row) return { message: "❌ Deposit request not found. Please start again.", keyboard: back };
+  if (row.status === "credited") return { message: "✅ This deposit was already credited.", keyboard: back };
+  if (await txUsed(txid)) return { message: "❌ This transaction ID was already used.", keyboard: back };
+
+  const expected = Number(row.amount_usdt);
+  const method = row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`;
+
+  let match: { ok: boolean; amount?: number; error?: string } = { ok: false };
+  try {
+    const { findByTxId } = await import("@/lib/binance.server");
+    match = await findByTxId(txid);
+  } catch {
+    match = { ok: false };
+  }
+
+  if (match.ok && Math.abs(Number(match.amount) - expected) < 0.01) {
+    const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: txid });
+    if (usedErr) return { message: "❌ This transaction ID was already used.", keyboard: back };
+    const user = await getUser(chatId);
+    const credited = Number(match.amount);
+    await db.from("bot_users").update({ balance: Number(user.balance) + credited }).eq("telegram_id", chatId);
+    await db.from("binance_deposits").update({ status: "credited", tx_id: txid }).eq("id", depId);
+    await db.from("transactions").insert({
+      telegram_id: chatId,
+      type: "deposit",
+      amount: credited,
+      method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
+      reference: txid,
+      note: "Verified by transaction ID",
+    });
+    await db.from("payment_requests").insert({
+      telegram_id: chatId,
+      method,
+      amount: credited,
+      txid,
+      status: "approved",
+      admin_note: "Auto-approved — transaction ID matched",
+    });
+    return {
+      message: `🎉 Payment confirmed!\n\n${money(credited)} has been added to your balance.`,
+      keyboard: back,
+    };
+  }
+
+  await db.from("payment_requests").insert({
+    telegram_id: chatId,
+    method,
+    amount: expected,
+    txid,
+    sender_info: username ? "@" + username : String(chatId),
+    status: "pending",
+  });
+  await db.from("binance_deposits").update({ tx_id: txid }).eq("id", depId);
+  await notifyAdmins(
+    `💳 <b>Binance deposit — manual check</b>\nUser: <code>${chatId}</code>\nMethod: ${method}\nAmount: <b>${expected.toFixed(4)} USDT</b>\nTXID: <code>${escapeHtml(txid)}</code>`,
+  );
+  return {
+    message:
+      `🧾 Transaction ID received.\n\nWe could not match it automatically yet, so an admin will verify it shortly. ` +
+      `You can also tap auto verify again in a few minutes.`,
+    keyboard: back,
+  };
+}
 
 /* -------------------------------------------------------------- purchasing */
 
@@ -748,6 +833,14 @@ async function handleMessage(msg: any) {
       }
       const view = binanceView((r as any).row);
       await say(chatId, view.text, view.kb);
+      return;
+    }
+    case "bin_txid": {
+      const txid = text.trim();
+      state.awaiting = null;
+      await setState(chatId, state);
+      const r = await submitBinanceTxid(chatId, state.bin_dep_id, txid, msg.from.username ?? null);
+      await say(chatId, r.message, r.keyboard);
       return;
     }
     case "deposit_amount": {
@@ -1182,6 +1275,16 @@ async function handleCallback(cq: any) {
     await edit(
       `💵 <b>${NETWORKS[network]}</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.`,
       [[{ text: "⬅️ Back", callback_data: "dep:usdt" }]],
+    );
+    return;
+  }
+
+  if (data.startsWith("btx:")) {
+    const id = data.slice(4);
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_txid", bin_dep_id: id });
+    await edit(
+      "🧾 Send the <b>Transaction ID</b> of your payment.\n\nBinance Pay → History → open the payment → copy the <b>Transaction ID / Order ID</b>.",
+      [[{ text: "⬅️ Wallet", callback_data: "wallet" }]],
     );
     return;
   }
