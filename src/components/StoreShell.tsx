@@ -1,50 +1,131 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { Clock, Headphones, MessageCircle, Search, ShieldCheck, ShoppingCart } from "lucide-react";
 import logo from "@/assets/qorix-logo.png";
+import { ThemeToggle } from "@/components/theme";
 
-const NAV = [
-  { to: "/", label: "Home" },
-  { to: "/store", label: "Store" },
-  { to: "/track", label: "Track order" },
-] as const;
+const CATEGORY_LINKS = ["AI Tools", "Creative", "Productivity", "VPN", "Streaming", "Social Services"];
 
 export function StoreShell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[520px] opacity-70"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 20% 0%, color-mix(in oklab, var(--primary) 30%, transparent), transparent 70%), radial-gradient(50% 50% at 85% 10%, color-mix(in oklab, var(--chart-4) 26%, transparent), transparent 70%)",
-        }}
-      />
-      <header className="relative z-10 border-b border-border/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="QORIX Store logo" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="text-lg font-semibold tracking-tight">
-              QORIX <span className="text-primary">STORE</span>
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
+          <Link to="/" className="flex shrink-0 items-center gap-2">
+            <img src={logo} alt="QORIX Store logo" className="h-9 w-9 rounded-xl object-cover" />
+            <span className="hidden text-base font-bold leading-tight tracking-tight sm:block">
+              QORIX
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">store</span>
             </span>
           </Link>
+
+          <Link
+            to="/store"
+            className="group hidden min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 md:flex"
+          >
+            <Search className="h-4 w-4" />
+            Search products…
+          </Link>
+
           <nav className="ml-auto flex items-center gap-1 text-sm">
-            {NAV.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                activeOptions={{ exact: n.to === "/" }}
-                className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                activeProps={{ className: "bg-secondary text-foreground" }}
-              >
-                {n.label}
-              </Link>
-            ))}
+            <Link
+              to="/store"
+              className="hidden rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:block"
+              activeProps={{ className: "bg-primary text-primary-foreground" }}
+            >
+              Categories
+            </Link>
+            <Link
+              to="/track"
+              className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              activeProps={{ className: "bg-secondary text-foreground" }}
+            >
+              Track Order
+            </Link>
+            <ThemeToggle />
+            <Link
+              to="/store"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label="Open the store"
+            >
+              <ShoppingCart className="h-4 w-4" />
+            </Link>
           </nav>
         </div>
       </header>
-      <main className="relative z-10">{children}</main>
-      <footer className="relative z-10 border-t border-border/60 py-8 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} QORIX Store — digital goods, delivered instantly.
+
+      <main className="flex-1">{children}</main>
+
+      <footer className="border-t border-border/70 bg-secondary/30">
+        <div className="mx-auto max-w-7xl px-4 py-12">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="text-base font-bold">
+              QORIX <span className="text-primary">STORE</span>
+            </span>
+          </div>
+          <p className="mt-3 max-w-md text-sm text-muted-foreground">
+            Your one-stop shop for premium digital products, subscriptions and social services — on the web and inside
+            Telegram.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-primary" /> 100% Secure Payment
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-primary" /> Fast Delivery
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Headphones className="h-4 w-4 text-primary" /> 24/7 Support
+            </span>
+          </div>
+
+          <div className="mt-10 grid gap-8 text-sm sm:grid-cols-3">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-foreground">Category</h2>
+              <ul className="mt-3 space-y-2 text-muted-foreground">
+                {CATEGORY_LINKS.map((c) => (
+                  <li key={c}>
+                    <Link to="/store" className="transition-colors hover:text-primary">
+                      {c}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-foreground">Quick links</h2>
+              <ul className="mt-3 space-y-2 text-muted-foreground">
+                <li>
+                  <Link to="/store" className="transition-colors hover:text-primary">
+                    All products
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/track" className="transition-colors hover:text-primary">
+                    Track order
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/auth" className="transition-colors hover:text-primary">
+                    Admin log in
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-foreground">Contact</h2>
+              <p className="mt-3 inline-flex items-center gap-2 text-muted-foreground">
+                <MessageCircle className="h-4 w-4 text-success" /> Telegram support 24/7
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 border-t border-border/70 pt-5 text-xs text-muted-foreground">
+            © {new Date().getFullYear()} <span className="font-medium text-primary">QORIX Store</span>. All rights
+            reserved.
+          </div>
+        </div>
       </footer>
     </div>
   );
