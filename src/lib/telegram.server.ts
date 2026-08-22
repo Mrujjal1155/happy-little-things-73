@@ -88,3 +88,18 @@ export function getWebhookInfo() {
 export function getMe() {
   return tg("getMe", {});
 }
+
+export function setMyCommands() {
+  return tg("setMyCommands", {
+    commands: [
+      { command: "start", description: "Open the home menu" },
+      { command: "shop", description: "Browse the shop" },
+      { command: "cart", description: "View your cart" },
+      { command: "checkout", description: "Checkout and pay" },
+      { command: "orders", description: "View your orders" },
+      { command: "wallet", description: "View your wallet & balance" },
+      { command: "profile", description: "View your profile" },
+      { command: "support", description: "Contact support" },
+    ],
+  });
+}

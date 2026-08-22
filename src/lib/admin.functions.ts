@@ -395,7 +395,7 @@ export const registerWebhook = createServerFn({ method: "POST" })
         message:
           "TELEGRAM_BOT_TOKEN is not configured yet. Add the bot token from @BotFather before connecting the webhook.",
       };
-    const { setWebhook, getWebhookInfo } = await import("@/lib/telegram.server");
+    const { setWebhook, getWebhookInfo, setMyCommands } = await import("@/lib/telegram.server");
     const { createHash } = await import("crypto");
     const deriveTelegramWebhookSecret = (k: string) =>
       createHash("sha256").update(`telegram-webhook:${k}`).digest("base64url");
@@ -405,6 +405,7 @@ export const registerWebhook = createServerFn({ method: "POST" })
       .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2");
     const url = `${origin}/api/public/telegram/webhook`;
     const res = await setWebhook(url, deriveTelegramWebhookSecret(key));
+    await setMyCommands();
     const info = await getWebhookInfo();
     return {
       ok: Boolean(res.ok),
