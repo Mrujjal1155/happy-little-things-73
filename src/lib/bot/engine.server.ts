@@ -716,7 +716,26 @@ async function handleMessage(msg: any) {
   // state machine
   const state = (user.state ?? {}) as any;
   switch (state.awaiting) {
+    case "bin_amount": {
+      const amount = Number(text.replace(/[^0-9.]/g, ""));
+      if (!amount || amount <= 0) {
+        await say(chatId, "❌ Please send a valid amount, e.g. <code>10</code>");
+        return;
+      }
+      const kind = state.bin_kind === "crypto" ? "crypto" : "payid";
+      state.awaiting = null;
+      await setState(chatId, state);
+      const r = await startBinanceDeposit(chatId, kind, amount, state.bin_network);
+      if ("error" in r && r.error) {
+        await say(chatId, `❌ ${escapeHtml(r.error)}`, [[{ text: "⬅️ Wallet", callback_data: "wallet" }]]);
+        return;
+      }
+      const view = binanceView((r as any).row);
+      await say(chatId, view.text, view.kb);
+      return;
+    }
     case "deposit_amount": {
+
       const amount = Number(text.replace(/[^0-9.]/g, ""));
       if (!amount || amount <= 0) {
         await say(chatId, "❌ Please send a valid amount, e.g. <code>10</code>");
