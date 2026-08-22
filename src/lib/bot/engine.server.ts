@@ -153,7 +153,9 @@ function homeKeyboard(): Button[][] {
     [
       { text: "🛒 SHOP", callback_data: "shop:0" },
       { text: "🧺 Cart", callback_data: "cart" },
+      { text: "📦 Orders", callback_data: "orders" },
     ],
+
 
     [
       { text: "💰 Wallet", callback_data: "wallet" },
