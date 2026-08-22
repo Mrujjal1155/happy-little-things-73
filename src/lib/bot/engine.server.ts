@@ -1136,6 +1136,21 @@ async function handleCallback(cq: any) {
   }
 
   if (data === "dep:binance") {
+    const cfg = await binanceConfig();
+    if (!cfg.active || !cfg.payid) {
+      await edit("⚠️ Binance deposits are currently disabled. Please use another method.", [
+        [{ text: "⬅️ Wallet", callback_data: "wallet" }],
+      ]);
+      return;
+    }
+    if (!cfg.live) {
+      await setState(chatId, { ...(user.state ?? {}), awaiting: "deposit_amount", method: "Binance Pay" });
+      await edit(
+        `🪙 <b>Binance Pay (manual)</b>\n\nSend your payment to Pay ID:\n<code>${cfg.payAddress || "Not configured — contact support."}</code>\n\nThen reply with the <b>amount</b> you sent.`,
+        [[{ text: "⬅️ Back", callback_data: "wallet" }]],
+      );
+      return;
+    }
     await setState(chatId, { ...(user.state ?? {}), awaiting: "bin_amount", bin_kind: "payid" });
     await edit(
       "🪙 <b>Binance Pay deposit</b>\n\nHow much <b>USDT</b> do you want to add?\nReply with the amount, e.g. <code>10</code>.",
@@ -1145,6 +1160,13 @@ async function handleCallback(cq: any) {
   }
 
   if (data === "dep:usdt") {
+    const cfg = await binanceConfig();
+    if (!cfg.active || !cfg.crypto || !cfg.live) {
+      await edit("⚠️ Crypto deposits are currently disabled. Please use another method.", [
+        [{ text: "⬅️ Wallet", callback_data: "wallet" }],
+      ]);
+      return;
+    }
     await edit("💵 <b>USDT deposit</b>\n\nChoose the network you will send from:", [
       [{ text: "BEP-20 (BSC)", callback_data: "bnet:BSC" }],
       [{ text: "TRC-20 (Tron)", callback_data: "bnet:TRX" }],
