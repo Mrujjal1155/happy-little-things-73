@@ -58,7 +58,7 @@ function ProductsPage() {
   const delProd = useServerFn(deleteProduct);
   const pushStock = useServerFn(addStock);
 
-  const [cat, setCat] = useState({ name: "", emoji: "📁" });
+  const [cat, setCat] = useState({ name: "", emoji: "📁", channel: "both" });
   const [form, setForm] = useState({ ...EMPTY });
   const [stockFor, setStockFor] = useState<string>("");
   const [stockLines, setStockLines] = useState("");
@@ -66,9 +66,9 @@ function ProductsPage() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["catalogue"] });
 
   const catMut = useMutation({
-    mutationFn: () => saveCat({ data: { name: cat.name, emoji: cat.emoji } }),
+    mutationFn: () => saveCat({ data: { name: cat.name, emoji: cat.emoji, channel: cat.channel } }),
     onSuccess: () => {
-      setCat({ name: "", emoji: "📁" });
+      setCat({ name: "", emoji: "📁", channel: "both" });
       refresh();
       toast.success("Category saved");
     },
@@ -129,6 +129,17 @@ function ProductsPage() {
                 value={cat.name}
                 onChange={(e) => setCat({ ...cat, name: e.target.value })}
               />
+            </div>
+            <div className="flex gap-2">
+              <select
+                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                value={cat.channel}
+                onChange={(e) => setCat({ ...cat, channel: e.target.value })}
+              >
+                <option value="both">Both (Telegram + Website)</option>
+                <option value="telegram">Telegram only</option>
+                <option value="website">Website only</option>
+              </select>
               <Button onClick={() => catMut.mutate()} disabled={!cat.name}>
                 Add
               </Button>
@@ -138,6 +149,7 @@ function ProductsPage() {
                 <li key={c.id} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
                   <span>
                     {c.emoji} {c.name}
+                    <Badge variant="secondary" className="ml-2">{c.channel ?? "both"}</Badge>
                   </span>
                   <Button
                     size="sm"
