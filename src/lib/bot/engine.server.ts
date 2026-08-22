@@ -456,7 +456,13 @@ function uniqueAmount(base: number) {
   return Math.round((base + Math.floor(Math.random() * 99 + 1) / 10000) * 10000) / 10000;
 }
 
-async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amount: number, network?: string) {
+async function startBinanceDeposit(
+  chatId: number,
+  kind: "payid" | "crypto",
+  amount: number,
+  network?: string,
+  meta: Record<string, unknown> = {},
+) {
   const s = await getSettings();
   const amountUsdt = uniqueAmount(amount);
   let address = "";
@@ -486,6 +492,7 @@ async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amo
       network: kind === "crypto" ? network : null,
       address,
       amount_usdt: amountUsdt,
+      meta,
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     })
     .select("*")
@@ -493,6 +500,7 @@ async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amo
   if (error || !row) return { error: "Could not create the deposit. Please try again." };
   return { row };
 }
+
 
 function binanceView(row: any) {
   const head =
