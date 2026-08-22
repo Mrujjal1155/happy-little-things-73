@@ -644,31 +644,12 @@ async function submitBinanceTxid(chatId: number, depId: string, txid: string, us
   if (match.ok && Math.abs(Number(match.amount) - expected) < 0.01) {
     const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: txid });
     if (usedErr) return { message: "❌ This transaction ID was already used.", keyboard: back };
-    const user = await getUser(chatId);
-    const credited = Number(match.amount);
-    await db.from("bot_users").update({ balance: Number(user.balance) + credited }).eq("telegram_id", chatId);
-    await db.from("binance_deposits").update({ status: "credited", tx_id: txid }).eq("id", depId);
-    await db.from("transactions").insert({
-      telegram_id: chatId,
-      type: "deposit",
-      amount: credited,
-      method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
-      reference: txid,
-      note: "Verified by transaction ID",
-    });
-    await db.from("payment_requests").insert({
-      telegram_id: chatId,
-      method,
-      amount: credited,
-      txid,
-      status: "approved",
-      admin_note: "Auto-approved — transaction ID matched",
-    });
-    return {
-      message: `🎉 Payment confirmed!\n\n${money(credited)} has been added to your balance.`,
-      keyboard: back,
-    };
+    const r = await settlePayment(chatId, row, Number(match.amount), txid, "Auto-approved — transaction ID matched");
+    return { message: r.message, keyboard: r.keyboard };
   }
+
+  const meta = (row.meta ?? {}) as any;
+  const isOrder = Array.isArray(meta.items) && meta.items.length;
 
   await db.from("payment_requests").insert({
     telegram_id: chatId,
@@ -680,15 +661,18 @@ async function submitBinanceTxid(chatId: number, depId: string, txid: string, us
   });
   await db.from("binance_deposits").update({ tx_id: txid }).eq("id", depId);
   await notifyAdmins(
-    `💳 <b>Binance deposit — manual check</b>\nUser: <code>${chatId}</code>\nMethod: ${method}\nAmount: <b>${expected.toFixed(4)} USDT</b>\nTXID: <code>${escapeHtml(txid)}</code>`,
+    `💳 <b>${isOrder ? "Order payment" : "Binance deposit"} — manual check</b>\nUser: <code>${chatId}</code>\nMethod: ${method}\nAmount: <b>${expected.toFixed(4)} USDT</b>\nTXID: <code>${escapeHtml(txid)}</code>` +
+      (isOrder ? `\nItems: ${escapeHtml(String(meta.summary ?? ""))}` : ""),
   );
   return {
-    message:
-      `🧾 Transaction ID received.\n\nWe could not match it automatically yet, so an admin will verify it shortly. ` +
-      `You can also tap auto verify again in a few minutes.`,
+    message: isOrder
+      ? `🧾 Transaction ID received.\n\n⏳ <b>Your order is waiting for payment confirmation.</b>\nAn admin is verifying your payment — delivery will be sent here as soon as it is confirmed.\n\n<i>Order:</i> ${escapeHtml(String(meta.summary ?? ""))}\n<i>Amount:</i> <b>${expected.toFixed(4)} USDT</b>`
+      : `🧾 Transaction ID received.\n\nWe could not match it automatically yet, so an admin will verify it shortly. ` +
+        `You can also tap auto verify again in a few minutes.`,
     keyboard: back,
   };
 }
+
 
 /* -------------------------------------------------------------- purchasing */
 
