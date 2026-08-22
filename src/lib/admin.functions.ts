@@ -466,6 +466,59 @@ export const checkBotToken = createServerFn({ method: "GET" })
     }
   });
 
+export const getWebhookStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { origin: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const key = process.env["TELEGRAM_API_KEY"] || process.env["TELEGRAM_BOT_TOKEN"];
+    const origin = data.origin
+      .replace(/\/$/, "")
+      .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2")
+      .replace(/^https:\/\/([0-9a-f-]{36})\.lovableproject\.com$/, "https://project--$1-dev.lovable.app")
+      .replace(/^https:\/\/([0-9a-f-]{36})\.(?:sandbox\.)?lovable\.app$/, "https://project--$1-dev.lovable.app");
+    const expectedUrl = `${origin}/api/public/telegram/webhook`;
+
+    if (!key) {
+      return {
+        configured: false as const,
+        expectedUrl,
+        info: null,
+        matches: false,
+        lastUpdate: null as null | { at: string; kind: string; from: string },
+        botUsername: null as string | null,
+      };
+    }
+
+    const { getWebhookInfo, getMe } = await import("@/lib/telegram.server");
+    const [info, me] = await Promise.all([getWebhookInfo(), getMe()]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const { data: rows } = await db
+      .from("bot_settings")
+      .select("key,value")
+      .in("key", ["webhook_last_update_at", "webhook_last_update_kind", "webhook_last_update_from"]);
+    const map: Record<string, string> = {};
+    for (const r of rows ?? []) map[r.key] = r.value ?? "";
+
+    const current = (info.result?.url ?? "") as string;
+    return {
+      configured: true as const,
+      expectedUrl,
+      info: info.result ?? null,
+      matches: current === expectedUrl,
+      lastUpdate: map["webhook_last_update_at"]
+        ? {
+            at: map["webhook_last_update_at"]!,
+            kind: map["webhook_last_update_kind"] ?? "unknown",
+            from: map["webhook_last_update_from"] ?? "unknown",
+          }
+        : null,
+      botUsername: (me.result?.username as string | undefined) ?? null,
+    };
+  });
+
+
 export const checkBinanceStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
