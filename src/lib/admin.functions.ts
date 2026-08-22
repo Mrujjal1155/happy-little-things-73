@@ -470,6 +470,32 @@ export const checkBinanceStatus = createServerFn({ method: "GET" })
       const { checkBinanceKeys } = await import("@/lib/binance.server");
       return await checkBinanceKeys();
     } catch (e) {
-      return { ok: false as const, message: e instanceof Error ? e.message : "Could not reach Binance." };
+      return {
+        ok: false as const,
+        saved: false as const,
+        message: e instanceof Error ? e.message : "Could not reach Binance.",
+      };
     }
+  });
+
+export const saveBinanceKeys = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { apiKey: string; secretKey: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const apiKey = data.apiKey.trim();
+    const secretKey = data.secretKey.trim();
+    if (apiKey.length < 10 || secretKey.length < 10) {
+      return { ok: false as const, message: "API Key ও Secret Key দুটোই সঠিকভাবে দিন।" };
+    }
+    const { validateCreds } = await import("@/lib/binance.server");
+    const check = await validateCreds({ apiKey, secretKey });
+    if (!check.ok) return { ok: false as const, message: check.message };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("binance_credentials")
+      .upsert({ id: 1, api_key: apiKey, api_secret: secretKey }, { onConflict: "id" });
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, message: "Binance API keys saved and verified." };
   });

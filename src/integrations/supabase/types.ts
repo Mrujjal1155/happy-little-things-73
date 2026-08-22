@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      binance_credentials: {
+        Row: {
+          api_key: string
+          api_secret: string
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string
+          api_secret?: string
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          api_secret?: string
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       binance_deposits: {
         Row: {
           address: string | null

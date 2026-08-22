@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { checkBinanceStatus, checkBotToken, getBotSettings, registerWebhook, saveBotSettings } from "@/lib/admin.functions";
+import { checkBinanceStatus, checkBotToken, getBotSettings, registerWebhook, saveBinanceKeys, saveBotSettings } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/AdminShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,13 +47,15 @@ function SettingsPage() {
   const hook = useServerFn(registerWebhook);
   const checkToken = useServerFn(checkBotToken);
   const checkBinance = useServerFn(checkBinanceStatus);
+  const saveKeys = useServerFn(saveBinanceKeys);
+  const [savingKeys, setSavingKeys] = useState(false);
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => fetchSettings() });
   const { data: tokenStatus, isLoading: tokenLoading } = useQuery({
     queryKey: ["bot-token-status"],
     queryFn: () => checkToken(),
     refetchOnWindowFocus: false,
   });
-  const { data: binanceStatus } = useQuery({
+  const { data: binanceStatus, refetch: refetchBinance } = useQuery({
     queryKey: ["binance-status"],
     queryFn: () => checkBinance(),
     refetchOnWindowFocus: false,
@@ -71,6 +73,21 @@ function SettingsPage() {
       toast.success("Settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  }
+
+  async function onSaveKeys(apiKey: string, secretKey: string) {
+    setSavingKeys(true);
+    try {
+      const r = await saveKeys({ data: { apiKey, secretKey } });
+      if (r.ok) {
+        toast.success(r.message);
+        await refetchBinance();
+      } else toast.error(r.message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSavingKeys(false);
     }
   }
 
@@ -121,7 +138,14 @@ function SettingsPage() {
           )}
         </CardContent>
       </Card>
-      <BinanceSetupCard values={values} setValues={setValues} onSave={onSave} apiStatus={binanceStatus} />
+      <BinanceSetupCard
+        values={values}
+        setValues={setValues}
+        onSave={onSave}
+        apiStatus={binanceStatus}
+        onSaveKeys={onSaveKeys}
+        savingKeys={savingKeys}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Bot configuration</CardTitle>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +23,20 @@ export function BinanceSetupCard({
   setValues,
   onSave,
   apiStatus,
+  onSaveKeys,
+  savingKeys,
 }: {
   values: Values;
   setValues: (v: Values) => void;
   onSave: () => void;
   apiStatus?: { ok: boolean; message: string } | undefined;
+  onSaveKeys: (apiKey: string, secretKey: string) => void;
+  savingKeys?: boolean;
 }) {
   const set = (k: string, v: string) => setValues({ ...values, [k]: v });
   const live = (values["binance_mode"] ?? "live") !== "personal";
+  const [apiKey, setApiKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
 
   return (
     <Card className="mb-4">
@@ -68,13 +75,40 @@ export function BinanceSetupCard({
 
           <div className="space-y-1">
             <Label>API KEY (For Auto-Verify)</Label>
-            <Input value={apiStatus?.ok ? "•••••••••••••••• (stored securely)" : "Not configured"} readOnly />
+            <Input
+              type="password"
+              autoComplete="off"
+              placeholder={apiStatus?.ok ? "•••••••••••••••• (saved)" : "Paste your Binance API Key"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
           </div>
 
           <div className="space-y-1">
             <Label>Secret KEY (For Auto-Verify)</Label>
-            <Input value={apiStatus?.ok ? "•••••••••••••••• (stored securely)" : "Not configured"} readOnly />
+            <Input
+              type="password"
+              autoComplete="off"
+              placeholder={apiStatus?.ok ? "•••••••••••••••• (saved)" : "Paste your Binance Secret Key"}
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
+            />
           </div>
+
+          <div className="sm:col-span-2">
+            <Button
+              variant="outline"
+              disabled={savingKeys || !apiKey.trim() || !secretKey.trim()}
+              onClick={() => {
+                onSaveKeys(apiKey.trim(), secretKey.trim());
+                setApiKey("");
+                setSecretKey("");
+              }}
+            >
+              {savingKeys ? "Verifying…" : "Save API Keys"}
+            </Button>
+          </div>
+
 
           <div className="space-y-1 sm:col-span-2">
             <Label>Binance Pay ID (For Pay ID Auto-Verify)</Label>
@@ -114,8 +148,8 @@ export function BinanceSetupCard({
 
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           <b>Note:</b> Deposit addresses for crypto (TRC20, BEP20) are fetched and verified automatically using
-          your API keys. You do not need to enter any wallet address here. API keys are stored as encrypted
-          secrets (BINANCE_API_KEY / BINANCE_API_SECRET), never in the database.
+          your API keys. You do not need to enter any wallet address here. Keys are verified with Binance before
+          saving and are only readable by the server — never sent back to this page.
         </div>
 
         <div className="space-y-2">
