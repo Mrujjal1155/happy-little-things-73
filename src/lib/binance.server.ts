@@ -6,11 +6,37 @@ const BASE = "https://api.binance.com";
 
 export type BinanceCreds = { apiKey: string; secretKey: string };
 
-export function getCreds(): BinanceCreds | null {
+/** Keys come from the admin dashboard (DB, server-only read) or fall back to env secrets. */
+export async function getCreds(): Promise<BinanceCreds | null> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("binance_credentials")
+      .select("api_key,api_secret")
+      .eq("id", 1)
+      .maybeSingle();
+    if (data?.api_key && data?.api_secret) {
+      return { apiKey: data.api_key as string, secretKey: data.api_secret as string };
+    }
+  } catch {
+    /* fall through to env */
+  }
   const apiKey = process.env["BINANCE_API_KEY"];
   const secretKey = process.env["BINANCE_API_SECRET"];
   if (!apiKey || !secretKey) return null;
   return { apiKey, secretKey };
+}
+
+/** True when keys are stored (without revealing them). */
+export async function hasStoredCreds() {
+  return (await getCreds()) !== null;
+}
+
+/** Validate a key pair without persisting it. */
+export async function validateCreds(creds: BinanceCreds) {
+  const r = await signedGet("/sapi/v1/capital/config/getall", {}, creds);
+  if (!r.ok) return { ok: false as const, message: `Binance rejected the keys: ${r.error}` };
+  return { ok: true as const, message: "Binance API keys are valid." };
 }
 
 async function signedGet(path: string, params: Record<string, string | number>, creds: BinanceCreds) {
