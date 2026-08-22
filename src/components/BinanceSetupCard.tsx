@@ -74,13 +74,40 @@ export function BinanceSetupCard({
 
           <div className="space-y-1">
             <Label>API KEY (For Auto-Verify)</Label>
-            <Input value={apiStatus?.ok ? "•••••••••••••••• (stored securely)" : "Not configured"} readOnly />
+            <Input
+              type="password"
+              autoComplete="off"
+              placeholder={apiStatus?.ok ? "•••••••••••••••• (saved)" : "Paste your Binance API Key"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
           </div>
 
           <div className="space-y-1">
             <Label>Secret KEY (For Auto-Verify)</Label>
-            <Input value={apiStatus?.ok ? "•••••••••••••••• (stored securely)" : "Not configured"} readOnly />
+            <Input
+              type="password"
+              autoComplete="off"
+              placeholder={apiStatus?.ok ? "•••••••••••••••• (saved)" : "Paste your Binance Secret Key"}
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
+            />
           </div>
+
+          <div className="sm:col-span-2">
+            <Button
+              variant="outline"
+              disabled={savingKeys || !apiKey.trim() || !secretKey.trim()}
+              onClick={() => {
+                onSaveKeys(apiKey.trim(), secretKey.trim());
+                setApiKey("");
+                setSecretKey("");
+              }}
+            >
+              {savingKeys ? "Verifying…" : "Save API Keys"}
+            </Button>
+          </div>
+
 
           <div className="space-y-1 sm:col-span-2">
             <Label>Binance Pay ID (For Pay ID Auto-Verify)</Label>
