@@ -395,7 +395,7 @@ export const registerWebhook = createServerFn({ method: "POST" })
         message:
           "TELEGRAM_BOT_TOKEN is not configured yet. Add the bot token from @BotFather before connecting the webhook.",
       };
-    const { setWebhook, getWebhookInfo } = await import("@/lib/telegram.server");
+    const { setWebhook, getWebhookInfo, setMyCommands } = await import("@/lib/telegram.server");
     const { createHash } = await import("crypto");
     const deriveTelegramWebhookSecret = (k: string) =>
       createHash("sha256").update(`telegram-webhook:${k}`).digest("base64url");
@@ -405,6 +405,7 @@ export const registerWebhook = createServerFn({ method: "POST" })
       .replace(/^https:\/\/id-preview--([0-9a-f-]{36})\.(.+)$/, "https://project--$1-dev.$2");
     const url = `${origin}/api/public/telegram/webhook`;
     const res = await setWebhook(url, deriveTelegramWebhookSecret(key));
+    await setMyCommands();
     const info = await getWebhookInfo();
     return {
       ok: Boolean(res.ok),
@@ -498,4 +499,50 @@ export const saveBinanceKeys = createServerFn({ method: "POST" })
       .upsert({ id: 1, api_key: apiKey, api_secret: secretKey }, { onConflict: "id" });
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const, message: "Binance API keys saved and verified." };
+  });
+
+export const listCoupons = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await (context as any).supabase
+      .from("coupons")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    return data ?? [];
+  });
+
+export const saveCoupon = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { code: string; percent: number; amount_off: number; max_uses: number }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const code = data.code.trim().toUpperCase();
+    if (!code) throw new Error("Coupon code is required");
+    const { error } = await (context as any).supabase.from("coupons").upsert(
+      {
+        code,
+        percent: Number(data.percent) || 0,
+        amount_off: Number(data.amount_off) || 0,
+        max_uses: Number(data.max_uses) || 0,
+        is_active: true,
+      },
+      { onConflict: "code" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const toggleCoupon = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; is_active: boolean }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await (context as any).supabase
+      .from("coupons")
+      .update({ is_active: data.is_active })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

@@ -153,7 +153,9 @@ function homeKeyboard(): Button[][] {
     [
       { text: "🛒 SHOP", callback_data: "shop:0" },
       { text: "🧺 Cart", callback_data: "cart" },
+      { text: "📦 Orders", callback_data: "orders" },
     ],
+
 
     [
       { text: "💰 Wallet", callback_data: "wallet" },
@@ -456,7 +458,13 @@ function uniqueAmount(base: number) {
   return Math.round((base + Math.floor(Math.random() * 99 + 1) / 10000) * 10000) / 10000;
 }
 
-async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amount: number, network?: string) {
+async function startBinanceDeposit(
+  chatId: number,
+  kind: "payid" | "crypto",
+  amount: number,
+  network?: string,
+  meta: Record<string, unknown> = {},
+) {
   const s = await getSettings();
   const amountUsdt = uniqueAmount(amount);
   let address = "";
@@ -486,6 +494,7 @@ async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amo
       network: kind === "crypto" ? network : null,
       address,
       amount_usdt: amountUsdt,
+      meta,
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     })
     .select("*")
@@ -493,6 +502,7 @@ async function startBinanceDeposit(chatId: number, kind: "payid" | "crypto", amo
   if (error || !row) return { error: "Could not create the deposit. Please try again." };
   return { row };
 }
+
 
 function binanceView(row: any) {
   const head =
@@ -549,40 +559,60 @@ async function verifyBinanceDeposit(chatId: number, id: string) {
   const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: result.txId });
   if (usedErr) return { message: "⏳ Payment not found yet. Please try again." };
 
+  return await settlePayment(chatId, row, Number(result.amount), result.txId!, "Auto-verified via Binance API");
+}
+
+/** Credit a wallet deposit, or fulfil a direct checkout attached to the deposit row. */
+async function settlePayment(chatId: number, row: any, amount: number, txid: string, note: string) {
+  const methodLabel = row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`;
+  const methodKey = row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`;
+  const meta = (row.meta ?? {}) as any;
+
+  await db.from("binance_deposits").update({ status: "credited", tx_id: txid }).eq("id", row.id);
+  await db.from("payment_requests").insert({
+    telegram_id: chatId,
+    method: methodLabel,
+    amount,
+    txid,
+    status: "approved",
+    admin_note: note,
+  });
+
+  if (Array.isArray(meta.items) && meta.items.length) {
+    await db.from("transactions").insert({
+      telegram_id: chatId,
+      type: "deposit",
+      amount,
+      method: methodKey,
+      reference: txid,
+      note: "Direct checkout payment",
+    });
+    const fresh = await getUser(chatId);
+    await db.from("bot_users").update({ balance: Number(fresh.balance) + amount }).eq("telegram_id", chatId);
+    const res = await fulfillCheckout(chatId, meta, methodKey, txid);
+    return { message: res.text, keyboard: res.kb };
+  }
+
   const user = await getUser(chatId);
-  await db
-    .from("bot_users")
-    .update({ balance: Number(user.balance) + result.amount })
-    .eq("telegram_id", chatId);
-  await db
-    .from("binance_deposits")
-    .update({ status: "credited", tx_id: result.txId })
-    .eq("id", id);
+  await db.from("bot_users").update({ balance: Number(user.balance) + amount }).eq("telegram_id", chatId);
   await db.from("transactions").insert({
     telegram_id: chatId,
     type: "deposit",
-    amount: result.amount,
-    method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
-    reference: result.txId,
-    note: "Auto-verified via Binance API",
-  });
-  await db.from("payment_requests").insert({
-    telegram_id: chatId,
-    method: row.kind === "payid" ? "Binance Pay" : `USDT ${row.network}`,
-    amount: result.amount,
-    txid: result.txId,
-    status: "approved",
-    admin_note: "Auto-approved by Binance API",
+    amount,
+    method: methodKey,
+    reference: txid,
+    note,
   });
 
   return {
-    message: `🎉 Payment confirmed!\n\n${money(result.amount)} has been added to your balance.`,
+    message: `🎉 Payment confirmed!\n\n${money(amount)} has been added to your balance.`,
     keyboard: [
       [{ text: "💰 Wallet", callback_data: "wallet" }],
       [{ text: "🏠 Home", callback_data: "home" }],
     ] as Button[][],
   };
 }
+
 
 
 
@@ -616,31 +646,12 @@ async function submitBinanceTxid(chatId: number, depId: string, txid: string, us
   if (match.ok && Math.abs(Number(match.amount) - expected) < 0.01) {
     const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: txid });
     if (usedErr) return { message: "❌ This transaction ID was already used.", keyboard: back };
-    const user = await getUser(chatId);
-    const credited = Number(match.amount);
-    await db.from("bot_users").update({ balance: Number(user.balance) + credited }).eq("telegram_id", chatId);
-    await db.from("binance_deposits").update({ status: "credited", tx_id: txid }).eq("id", depId);
-    await db.from("transactions").insert({
-      telegram_id: chatId,
-      type: "deposit",
-      amount: credited,
-      method: row.kind === "payid" ? "binance_pay" : `usdt_${row.network}`,
-      reference: txid,
-      note: "Verified by transaction ID",
-    });
-    await db.from("payment_requests").insert({
-      telegram_id: chatId,
-      method,
-      amount: credited,
-      txid,
-      status: "approved",
-      admin_note: "Auto-approved — transaction ID matched",
-    });
-    return {
-      message: `🎉 Payment confirmed!\n\n${money(credited)} has been added to your balance.`,
-      keyboard: back,
-    };
+    const r = await settlePayment(chatId, row, Number(match.amount), txid, "Auto-approved — transaction ID matched");
+    return { message: r.message, keyboard: r.keyboard };
   }
+
+  const meta = (row.meta ?? {}) as any;
+  const isOrder = Array.isArray(meta.items) && meta.items.length;
 
   await db.from("payment_requests").insert({
     telegram_id: chatId,
@@ -652,115 +663,18 @@ async function submitBinanceTxid(chatId: number, depId: string, txid: string, us
   });
   await db.from("binance_deposits").update({ tx_id: txid }).eq("id", depId);
   await notifyAdmins(
-    `💳 <b>Binance deposit — manual check</b>\nUser: <code>${chatId}</code>\nMethod: ${method}\nAmount: <b>${expected.toFixed(4)} USDT</b>\nTXID: <code>${escapeHtml(txid)}</code>`,
+    `💳 <b>${isOrder ? "Order payment" : "Binance deposit"} — manual check</b>\nUser: <code>${chatId}</code>\nMethod: ${method}\nAmount: <b>${expected.toFixed(4)} USDT</b>\nTXID: <code>${escapeHtml(txid)}</code>` +
+      (isOrder ? `\nItems: ${escapeHtml(String(meta.summary ?? ""))}` : ""),
   );
   return {
-    message:
-      `🧾 Transaction ID received.\n\nWe could not match it automatically yet, so an admin will verify it shortly. ` +
-      `You can also tap auto verify again in a few minutes.`,
+    message: isOrder
+      ? `🧾 Transaction ID received.\n\n⏳ <b>Your order is waiting for payment confirmation.</b>\nAn admin is verifying your payment — delivery will be sent here as soon as it is confirmed.\n\n<i>Order:</i> ${escapeHtml(String(meta.summary ?? ""))}\n<i>Amount:</i> <b>${expected.toFixed(4)} USDT</b>`
+      : `🧾 Transaction ID received.\n\nWe could not match it automatically yet, so an admin will verify it shortly. ` +
+        `You can also tap auto verify again in a few minutes.`,
     keyboard: back,
   };
 }
 
-/* -------------------------------------------------------------- purchasing */
-
-async function completePurchase(user: any, product: any, qty: number) {
-  const total = Number(product.price) * qty;
-  if (Number(user.balance) < total) {
-    return { error: `Insufficient balance. You need ${money(total)} but have ${money(user.balance)}.` };
-  }
-
-  let delivered: string | null = null;
-  let status = "pending";
-
-  if (product.delivery_type === "auto") {
-    const { data: items } = await db
-      .from("stock_items")
-      .select("*")
-      .eq("product_id", product.id)
-      .eq("is_sold", false)
-      .order("created_at", { ascending: true })
-      .limit(qty);
-    if (!items || items.length < qty) return { error: "Not enough stock available right now." };
-    await db
-      .from("stock_items")
-      .update({ is_sold: true, sold_to: user.telegram_id, sold_at: new Date().toISOString() })
-      .in(
-        "id",
-        items.map((i: any) => i.id),
-      );
-    delivered = items.map((i: any) => i.content).join("\n");
-    status = "completed";
-  }
-
-  const { data: order } = await db
-    .from("orders")
-    .insert({
-      telegram_id: user.telegram_id,
-      product_id: product.id,
-      product_name: product.name,
-      quantity: qty,
-      unit_price: product.price,
-      total,
-      status,
-      delivery_type: product.delivery_type,
-      delivered_content: delivered,
-    })
-    .select("*")
-    .maybeSingle();
-
-  const newSpent = Number(user.total_spent) + total;
-  await db
-    .from("bot_users")
-    .update({
-      balance: Number(user.balance) - total,
-      total_spent: newSpent,
-      membership: membershipFor(newSpent),
-    })
-    .eq("telegram_id", user.telegram_id);
-
-  await db.from("transactions").insert({
-    telegram_id: user.telegram_id,
-    type: "purchase",
-    amount: -total,
-    method: "balance",
-    reference: order?.id ?? null,
-    note: `${qty}x ${product.name}`,
-  });
-
-  // referral commission
-  if (user.referred_by) {
-    const s = await getSettings();
-    const pct = Number(s["referral_percent"] || 0);
-    if (pct > 0) {
-      const commission = Number(((total * pct) / 100).toFixed(2));
-      if (commission > 0) {
-        const { data: ref } = await db
-          .from("bot_users")
-          .select("balance,referral_earnings")
-          .eq("telegram_id", user.referred_by)
-          .maybeSingle();
-        if (ref) {
-          await db
-            .from("bot_users")
-            .update({
-              balance: Number(ref.balance) + commission,
-              referral_earnings: Number(ref.referral_earnings) + commission,
-            })
-            .eq("telegram_id", user.referred_by);
-          await db.from("transactions").insert({
-            telegram_id: user.referred_by,
-            type: "referral",
-            amount: commission,
-            note: `Referral commission from ${maskUsername(user.username, user.first_name)}`,
-          });
-        }
-      }
-    }
-  }
-
-  return { order, delivered, status, total };
-}
 
 export async function announcePurchase(user: any, product: any, qty: number) {
   const s = await getSettings();
@@ -799,6 +713,50 @@ async function handleMessage(msg: any) {
     await say(chatId, await homeText(fresh), homeKeyboard());
     return;
   }
+
+  // shortcut commands
+  if (/^\/(shop|wallet|orders|profile|support|cart|checkout)\b/.test(text)) {
+    const cmd = text.slice(1).split(/[\s@]/)[0];
+    const fresh = await getUser(chatId);
+    if (cmd === "shop") {
+      const v = await shopView(0);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "wallet") {
+      const v = await walletView(fresh);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "orders") {
+      const v = await ordersView(chatId);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "cart") {
+      const v = await cartView(fresh);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "checkout") {
+      const v = (await startCheckout(chatId, readCart(fresh))) ?? (await cartView(fresh));
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "profile") {
+      const { count } = await db
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("telegram_id", chatId);
+      await say(
+        chatId,
+        `<b>P R O F I L E</b>\n\n` +
+          `💳 Username: ${fresh.username ? "@" + fresh.username : "—"}\n` +
+          `🆔 UserID: <code>${fresh.telegram_id}</code>\n` +
+          `🏅 Membership: ${fresh.membership}\n` +
+          `💰 Balance: ${money(fresh.balance)}\n` +
+          `💎 Total Spent: ${money(fresh.total_spent)}\n` +
+          `📦 Orders: ${count ?? 0}\n` +
+          `🎟 Referrals: ${fresh.referral_count}`,
+        [[{ text: "🏠 Home", callback_data: "home" }]],
+      );
+    } else {
+      const s = await getSettings();
+      await say(chatId, s["support_text"] || "🆘 Contact support.", [[{ text: "🏠 Home", callback_data: "home" }]]);
+    }
+    return;
+  }
+
 
   if (text.startsWith("/admin")) {
     if (!(await isAdmin(chatId))) {
@@ -919,9 +877,40 @@ async function handleMessage(msg: any) {
         await say(chatId, "❌ Invalid quantity.");
         return;
       }
-      await doBuy(chatId, state.product_id, qty);
+      const view = await startCheckout(chatId, [{ product_id: state.product_id, qty }]);
+      if (view) await say(chatId, view.text, view.kb);
       return;
     }
+    case "coupon": {
+      const code = text.trim().toUpperCase();
+      state.awaiting = null;
+      await setState(chatId, state);
+      const meta = await readCo(chatId);
+      if (!meta) {
+        await say(chatId, "🧺 Nothing to check out.", [[{ text: "🛒 SHOP", callback_data: "shop:0" }]]);
+        return;
+      }
+      const { data: c } = await db
+        .from("coupons")
+        .select("*")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+      const expired = c?.expires_at && new Date(c.expires_at).getTime() < Date.now();
+      const exhausted = c && Number(c.max_uses) > 0 && Number(c.used_count) >= Number(c.max_uses);
+      if (!c || expired || exhausted) {
+        await say(chatId, "❌ Invalid, expired or already used coupon code.", [
+          [{ text: "⬅️ Back to checkout", callback_data: "co" }],
+        ]);
+        return;
+      }
+      meta.coupon = { code: c.code, percent: Number(c.percent), amount_off: Number(c.amount_off) };
+      await writeCo(chatId, meta);
+      const view = await coView(chatId);
+      await say(chatId, `✅ Coupon <code>${escapeHtml(c.code)}</code> applied!\n\n${view.text}`, view.kb);
+      return;
+    }
+
     case "broadcast": {
       state.awaiting = null;
       await setState(chatId, state);
@@ -987,101 +976,267 @@ async function adminStatsText() {
   );
 }
 
-async function doBuy(chatId: number, productId: string, qty: number) {
-  const user = await getUser(chatId);
-  const { data: product } = await db.from("products").select("*").eq("id", productId).maybeSingle();
-  if (!user || !product) return;
-  const result = await completePurchase(user, product, qty);
-  if ((result as any).error) {
-    await say(chatId, `❌ ${(result as any).error}`, [
-      [{ text: "💰 Wallet", callback_data: "wallet" }],
-      [{ text: "🏠 Home", callback_data: "home" }],
-    ]);
-    return;
-  }
-  if (result.status === "completed") {
-    await say(
-      chatId,
-      `✅ <b>Order #${result.order?.order_no}</b> completed!\n${qty}× ${product.name}\nPaid: ${money(result.total)}\n\n<pre>${escapeHtml(result.delivered ?? "")}</pre>`,
-      [[{ text: "🏠 Home", callback_data: "home" }]],
-    );
-  } else {
-    await say(
-      chatId,
-      `🕐 <b>Order #${result.order?.order_no}</b> placed!\n${qty}× ${product.name}\nPaid: ${money(result.total)}\n\nThis product is delivered manually — an admin will deliver it shortly.`,
-      [[{ text: "🏠 Home", callback_data: "home" }]],
-    );
-    await notifyAdmins(
-      `🕐 <b>Manual order #${result.order?.order_no}</b>\nUser: <code>${chatId}</code>\n${qty}× ${product.name}`,
-    );
-  }
-  await announcePurchase(user, product, qty);
+
+/* --------------------------------------------- direct checkout (pay per order) */
+
+type Coupon = { code: string; percent: number; amount_off: number };
+type CoMeta = { items: CartLine[]; coupon?: Coupon | null; summary?: string; total?: number };
+
+async function coTotals(meta: CoMeta) {
+  const ids = meta.items.map((i) => i.product_id);
+  const { data: products } = await db.from("products").select("*").in("id", ids);
+  const lines = meta.items
+    .map((i) => {
+      const p = (products ?? []).find((x: any) => x.id === i.product_id);
+      return p ? { product: p, qty: i.qty, subtotal: Number(p.price) * i.qty } : null;
+    })
+    .filter(Boolean) as any[];
+  const subtotal = Math.round(lines.reduce((s, l) => s + l.subtotal, 0) * 100) / 100;
+  const c = meta.coupon;
+  let discount = c ? (subtotal * Number(c.percent || 0)) / 100 + Number(c.amount_off || 0) : 0;
+  discount = Math.max(0, Math.min(subtotal, Math.round(discount * 100) / 100));
+  const total = Math.round((subtotal - discount) * 100) / 100;
+  return { lines, subtotal, discount, total };
 }
 
-async function doCheckout(chatId: number) {
-  let user = await getUser(chatId);
-  if (!user) return;
-  const { lines, total } = await cartDetails(user);
-  if (!lines.length) {
-    await say(chatId, "🧺 Your cart is empty.", [[{ text: "🛒 SHOP", callback_data: "shop:0" }]]);
-    return;
+async function readCo(chatId: number): Promise<CoMeta | null> {
+  const u = await getUser(chatId);
+  const co = (u?.state ?? {}).co;
+  return co && Array.isArray(co.items) && co.items.length ? (co as CoMeta) : null;
+}
+
+async function writeCo(chatId: number, meta: CoMeta | null) {
+  const { data } = await db.from("bot_users").select("state").eq("telegram_id", chatId).maybeSingle();
+  const state = (data?.state ?? {}) as any;
+  if (meta) state.co = meta;
+  else delete state.co;
+  await db.from("bot_users").update({ state }).eq("telegram_id", chatId);
+}
+
+async function coView(chatId: number) {
+  const meta = await readCo(chatId);
+  if (!meta) {
+    return {
+      text: "🧺 Nothing to check out.",
+      kb: [[{ text: "🛒 SHOP", callback_data: "shop:0" }], [{ text: "🏠 Home", callback_data: "home" }]] as Button[][],
+    };
   }
-  if (Number(user.balance) < total) {
-    await say(
-      chatId,
-      `❌ Insufficient balance. Cart total is ${money(total)} but your balance is ${money(user.balance)}.`,
-      [
-        [{ text: "💰 Add funds", callback_data: "wallet" }],
-        [{ text: "🧺 Cart", callback_data: "cart" }],
-      ],
-    );
-    return;
-  }
-
-  const ok: string[] = [];
-  const failed: string[] = [];
-  const remaining: CartLine[] = [];
-  let deliveries = "";
-  let paid = 0;
-
-  for (const line of lines) {
-    user = await getUser(chatId);
-    const result: any = await completePurchase(user, line.product, line.qty);
-    if (result.error) {
-      failed.push(`• ${line.product.name} — ${result.error}`);
-      remaining.push({ product_id: line.product.id, qty: line.qty });
-      continue;
-    }
-    paid += Number(result.total);
-    ok.push(
-      `• #${result.order?.order_no} — ${line.qty}× ${line.product.name} · ${money(result.total)}` +
-        (result.status === "completed" ? "" : " (manual, pending)"),
-    );
-    if (result.delivered) {
-      deliveries += `\n<b>${line.product.name}</b>\n<pre>${escapeHtml(result.delivered)}</pre>`;
-    }
-    if (result.status !== "completed") {
-      await notifyAdmins(
-        `🕐 <b>Manual order #${result.order?.order_no}</b>\nUser: <code>${chatId}</code>\n${line.qty}× ${line.product.name}`,
-      );
-    }
-    await announcePurchase(user, line.product, line.qty);
-  }
-
-  await writeCart(chatId, remaining);
-
+  const { lines, subtotal, discount, total } = await coTotals(meta);
   let text = `<b>C H E C K O U T</b>\n──────────────\n`;
-  if (ok.length) text += `✅ <b>Order placed</b>\n${ok.join("\n")}\n\n💳 Paid: <b>${money(paid)}</b>\n`;
-  if (failed.length) text += `\n⚠️ <b>Not processed</b>\n${failed.join("\n")}\n<i>These items stay in your cart.</i>\n`;
-  if (deliveries) text += `\n🎁 <b>Your items</b>\n${deliveries}`;
+  for (const l of lines) {
+    text += `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
+  }
+  text += `──────────────\n🧾 Subtotal: ${money(subtotal)}\n`;
+  if (meta.coupon) text += `🏷 Coupon <code>${escapeHtml(meta.coupon.code)}</code>: −${money(discount)}\n`;
+  text += `💵 <b>Total to pay: ${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
 
   const kb: Button[][] = [];
-  if (remaining.length) kb.push([{ text: "🧺 Cart", callback_data: "cart" }]);
+  kb.push([
+    meta.coupon
+      ? { text: "🗑 Remove coupon", callback_data: "cocrm" }
+      : { text: "🏷 Apply coupon", callback_data: "cocpn" },
+  ]);
+  kb.push([{ text: `💳 Pay now · ${money(total)}`, callback_data: "copay" }]);
   kb.push([
     { text: "🛒 SHOP", callback_data: "shop:0" },
     { text: "🏠 Home", callback_data: "home" },
   ]);
-  await say(chatId, text, kb);
+  return { text, kb };
+}
+
+async function coPayView(chatId: number) {
+  const meta = await readCo(chatId);
+  if (!meta) return await coView(chatId);
+  const { total } = await coTotals(meta);
+  const cfg = await binanceConfig();
+  const user = await getUser(chatId);
+  const kb: Button[][] = [];
+  if (Number(user.balance) >= total && total > 0)
+    kb.push([{ text: `💰 Pay with balance (${money(user.balance)})`, callback_data: "copm:balance" }]);
+  if (cfg.active && cfg.payid) kb.push([{ text: "🪙 Binance Pay ID", callback_data: "copm:payid" }]);
+  if (cfg.active && cfg.crypto) {
+    kb.push([{ text: "💵 USDT BEP-20 (BSC)", callback_data: "copm:BSC" }]);
+    kb.push([{ text: "💵 USDT TRC-20 (Tron)", callback_data: "copm:TRX" }]);
+  }
+  kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
+  return {
+    text: `<b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+    kb,
+  };
+}
+
+/** Create the paid orders, deliver instantly or notify the admin for manual delivery. */
+async function fulfillCheckout(chatId: number, meta: CoMeta, methodKey: string, reference: string) {
+  const { lines, discount, total } = await coTotals(meta);
+  let user = await getUser(chatId);
+
+  // charge the order total from balance (payments are credited before fulfilment)
+  await db
+    .from("bot_users")
+    .update({
+      balance: Math.round((Number(user.balance) - total) * 100) / 100,
+      total_spent: Number(user.total_spent) + total,
+      membership: membershipFor(Number(user.total_spent) + total),
+    })
+    .eq("telegram_id", chatId);
+  await db.from("transactions").insert({
+    telegram_id: chatId,
+    type: "purchase",
+    amount: -total,
+    method: methodKey,
+    reference,
+    note: meta.summary ?? lines.map((l) => `${l.qty}x ${l.product.name}`).join(", "),
+  });
+
+  const share = lines.length ? discount / lines.length : 0;
+  let text = `<b>O R D E R   C O N F I R M E D</b>\n──────────────\n💳 Paid: <b>${money(total)}</b>\n`;
+  let deliveries = "";
+  let pending = 0;
+
+  for (const l of lines) {
+    const p = l.product;
+    let delivered: string | null = null;
+    let status = "pending";
+    if (p.delivery_type === "auto") {
+      const { data: items } = await db
+        .from("stock_items")
+        .select("*")
+        .eq("product_id", p.id)
+        .eq("is_sold", false)
+        .order("created_at", { ascending: true })
+        .limit(l.qty);
+      if (items && items.length >= l.qty) {
+        await db
+          .from("stock_items")
+          .update({ is_sold: true, sold_to: chatId, sold_at: new Date().toISOString() })
+          .in("id", items.map((i: any) => i.id));
+        delivered = items.map((i: any) => i.content).join("\n");
+        status = "completed";
+      }
+    }
+
+    const { data: order } = await db
+      .from("orders")
+      .insert({
+        telegram_id: chatId,
+        product_id: p.id,
+        product_name: p.name,
+        quantity: l.qty,
+        unit_price: p.price,
+        total: Math.max(0, Math.round((l.subtotal - share) * 100) / 100),
+        status,
+        delivery_type: p.delivery_type,
+        delivered_content: delivered,
+        coupon_code: meta.coupon?.code ?? null,
+        discount: Math.round(share * 100) / 100,
+      })
+      .select("*")
+      .maybeSingle();
+
+    text += `• #${order?.order_no} — ${l.qty}× ${p.name}${status === "completed" ? " ✅" : " ⏳ manual"}\n`;
+    if (delivered) deliveries += `\n<b>${p.name}</b>\n<pre>${escapeHtml(delivered)}</pre>`;
+    if (status !== "completed") {
+      pending++;
+      await notifyAdmins(
+        `🕐 <b>Manual delivery needed — order #${order?.order_no}</b>\nUser: <code>${chatId}</code>\n${l.qty}× ${p.name}\nPaid via: ${methodKey}\nRef: <code>${escapeHtml(reference)}</code>`,
+      );
+    }
+    await announcePurchase(user, p, l.qty);
+  }
+
+  // referral commission on the paid total
+  user = await getUser(chatId);
+  if (user?.referred_by) {
+    const s = await getSettings();
+    const pct = Number(s["referral_percent"] || 0);
+    const commission = Number(((total * pct) / 100).toFixed(2));
+    if (commission > 0) {
+      const { data: ref } = await db
+        .from("bot_users")
+        .select("balance,referral_earnings")
+        .eq("telegram_id", user.referred_by)
+        .maybeSingle();
+      if (ref) {
+        await db
+          .from("bot_users")
+          .update({
+            balance: Number(ref.balance) + commission,
+            referral_earnings: Number(ref.referral_earnings) + commission,
+          })
+          .eq("telegram_id", user.referred_by);
+        await db.from("transactions").insert({
+          telegram_id: user.referred_by,
+          type: "referral",
+          amount: commission,
+          note: `Referral commission from ${maskUsername(user.username, user.first_name)}`,
+        });
+      }
+    }
+  }
+
+  if (meta.coupon) {
+    const { data: c } = await db.from("coupons").select("id,used_count").eq("code", meta.coupon.code).maybeSingle();
+    if (c) await db.from("coupons").update({ used_count: Number(c.used_count) + 1 }).eq("id", c.id);
+  }
+
+  await writeCo(chatId, null);
+  await writeCart(chatId, []);
+
+  if (deliveries) text += `\n🎁 <b>Your items</b>${deliveries}\n`;
+  if (pending)
+    text +=
+      `\n⏳ <b>${pending} item(s) need manual delivery.</b>\n` +
+      `Our admin has been notified and will deliver here shortly. Please wait — you can check progress with /orders.\n`;
+
+  const kb: Button[][] = [
+    [{ text: "📦 My Orders", callback_data: "orders" }],
+    [
+      { text: "🛒 SHOP", callback_data: "shop:0" },
+      { text: "🏠 Home", callback_data: "home" },
+    ],
+  ];
+  return { text, kb };
+}
+
+/** Start a checkout for a single product or the whole cart. */
+async function startCheckout(chatId: number, items: CartLine[]) {
+  if (!items.length) return null;
+  const meta: CoMeta = { items, coupon: null };
+  const { lines, total } = await coTotals(meta);
+  if (!lines.length) return null;
+  meta.summary = lines.map((l) => `${l.qty}x ${l.product.name}`).join(", ");
+  meta.total = total;
+  await writeCo(chatId, meta);
+  return await coView(chatId);
+}
+
+async function ordersView(chatId: number) {
+  const { data: rows } = await db
+    .from("orders")
+    .select("*")
+    .eq("telegram_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const text = !rows?.length
+    ? `<b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
+    : `<b>M Y   O R D E R S</b>\n──────────────\n` +
+      rows
+        .map(
+          (o: any) =>
+            `${o.status === "completed" ? "✅" : o.status === "cancelled" ? "❌" : "⏳"} #${o.order_no} — ${o.quantity}× ${o.product_name} · ${money(o.total)}` +
+            (o.status === "pending" ? `\n   <i>waiting for manual delivery</i>` : ""),
+        )
+        .join("\n");
+  return {
+    text,
+    kb: [
+      [{ text: "🔄 Refresh", callback_data: "orders" }],
+      [
+        { text: "🛒 SHOP", callback_data: "shop:0" },
+        { text: "🏠 Home", callback_data: "home" },
+      ],
+    ] as Button[][],
+  };
 }
 
 
@@ -1182,29 +1337,89 @@ async function handleCallback(cq: any) {
     return;
   }
 
-  if (data === "cchk") {
+  if (data === "cchk" || data === "cgo") {
     const fresh = await getUser(chatId);
-    const { lines, total } = await cartDetails(fresh);
-    if (!lines.length) {
-      const view = await cartView(fresh);
+    const cart = readCart(fresh);
+    const view = (await startCheckout(chatId, cart)) ?? (await cartView(fresh));
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "co") {
+    const view = await coView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cocpn") {
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "coupon" });
+    await edit("🏷 Send your <b>coupon code</b> now.", [[{ text: "⬅️ Back", callback_data: "co" }]]);
+    return;
+  }
+
+  if (data === "cocrm") {
+    const meta = await readCo(chatId);
+    if (meta) {
+      meta.coupon = null;
+      await writeCo(chatId, meta);
+    }
+    const view = await coView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "copay") {
+    const view = await coPayView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data.startsWith("copm:")) {
+    const method = data.slice(5);
+    const meta = await readCo(chatId);
+    if (!meta) {
+      const view = await coView(chatId);
       await edit(view.text, view.kb);
       return;
     }
-    const summary = lines
-      .map((l) => `• ${l.qty}× ${l.product.name} — ${money(l.subtotal)}`)
-      .join("\n");
+    const { total } = await coTotals(meta);
+
+    if (method === "balance") {
+      const fresh = await getUser(chatId);
+      if (Number(fresh.balance) < total) {
+        await edit(`❌ Not enough balance (${money(fresh.balance)}). Choose another payment method.`, [
+          [{ text: "⬅️ Back", callback_data: "copay" }],
+        ]);
+        return;
+      }
+      const res = await fulfillCheckout(chatId, meta, "balance", "wallet");
+      await edit(res.text, res.kb);
+      return;
+    }
+
+    const kind = method === "payid" ? "payid" : "crypto";
+    const network = method === "payid" ? undefined : method;
+    const r = await startBinanceDeposit(chatId, kind as any, total, network, {
+      items: meta.items,
+      coupon: meta.coupon ?? null,
+      summary: meta.summary ?? "",
+      total,
+    });
+    if ("error" in r && r.error) {
+      await edit(`❌ ${escapeHtml(r.error)}`, [[{ text: "⬅️ Back", callback_data: "copay" }]]);
+      return;
+    }
+    const view = binanceView((r as any).row);
     await edit(
-      `<b>C O N F I R M   O R D E R</b>\n──────────────\n${summary}\n──────────────\n🧾 Total: <b>${money(total)}</b>\n💰 Balance: ${money(fresh.balance)}\n\n<i>Payment is taken from your wallet balance.</i>`,
-      [
-        [{ text: "✅ Confirm & Pay", callback_data: "cgo" }],
-        [{ text: "⬅️ Back to cart", callback_data: "cart" }],
-      ],
+      `🧾 <b>Order:</b> ${escapeHtml(meta.summary ?? "")}\n\n${view.text}`,
+      view.kb,
     );
     return;
   }
 
-  if (data === "cgo") {
-    await doCheckout(chatId);
+  if (data === "orders") {
+    const view = await ordersView(chatId);
+    await edit(view.text, view.kb);
     return;
   }
 
@@ -1214,12 +1429,13 @@ async function handleCallback(cq: any) {
     return;
   }
 
-
   if (data.startsWith("buy:")) {
     const [, productId, n] = data.split(":");
-    await doBuy(chatId, productId!, Number(n));
+    const view = await startCheckout(chatId, [{ product_id: productId!, qty: Math.max(1, Number(n) || 1) }]);
+    if (view) await edit(view.text, view.kb);
     return;
   }
+
 
   if (data === "wallet") {
     const fresh = await getUser(chatId);
