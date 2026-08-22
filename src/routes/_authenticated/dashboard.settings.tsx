@@ -29,8 +29,8 @@ export const Route = createFileRoute("/_authenticated/dashboard/settings")({
 const FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "bot_name", label: "Bot name" },
   { key: "welcome_text", label: "Welcome text", long: true },
-  { key: "usdt_bep20", label: "USDT BEP-20 address" },
-  { key: "usdt_trc20", label: "USDT TRC-20 address" },
+  // USDT addresses live in the Binance Setup card above
+
   { key: "bkash_number", label: "bKash number" },
   { key: "nagad_number", label: "Nagad number" },
   { key: "announce_chat_id", label: "Announcement channel/group ID" },
