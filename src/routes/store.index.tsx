@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/store")({
+export const Route = createFileRoute("/store/")({
   head: () => ({
     meta: [
       { title: "Store — QORIX Digital Goods" },
