@@ -1456,29 +1456,89 @@ async function handleCallback(cq: any) {
     return;
   }
 
-  if (data === "cchk") {
+  if (data === "cchk" || data === "cgo") {
     const fresh = await getUser(chatId);
-    const { lines, total } = await cartDetails(fresh);
-    if (!lines.length) {
-      const view = await cartView(fresh);
+    const cart = readCart(fresh);
+    const view = (await startCheckout(chatId, cart)) ?? (await cartView(fresh));
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "co") {
+    const view = await coView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cocpn") {
+    await setState(chatId, { ...(user.state ?? {}), awaiting: "coupon" });
+    await edit("🏷 Send your <b>coupon code</b> now.", [[{ text: "⬅️ Back", callback_data: "co" }]]);
+    return;
+  }
+
+  if (data === "cocrm") {
+    const meta = await readCo(chatId);
+    if (meta) {
+      meta.coupon = null;
+      await writeCo(chatId, meta);
+    }
+    const view = await coView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "copay") {
+    const view = await coPayView(chatId);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data.startsWith("copm:")) {
+    const method = data.slice(5);
+    const meta = await readCo(chatId);
+    if (!meta) {
+      const view = await coView(chatId);
       await edit(view.text, view.kb);
       return;
     }
-    const summary = lines
-      .map((l) => `• ${l.qty}× ${l.product.name} — ${money(l.subtotal)}`)
-      .join("\n");
+    const { total } = await coTotals(meta);
+
+    if (method === "balance") {
+      const fresh = await getUser(chatId);
+      if (Number(fresh.balance) < total) {
+        await edit(`❌ Not enough balance (${money(fresh.balance)}). Choose another payment method.`, [
+          [{ text: "⬅️ Back", callback_data: "copay" }],
+        ]);
+        return;
+      }
+      const res = await fulfillCheckout(chatId, meta, "balance", "wallet");
+      await edit(res.text, res.kb);
+      return;
+    }
+
+    const kind = method === "payid" ? "payid" : "crypto";
+    const network = method === "payid" ? undefined : method;
+    const r = await startBinanceDeposit(chatId, kind as any, total, network, {
+      items: meta.items,
+      coupon: meta.coupon ?? null,
+      summary: meta.summary ?? "",
+      total,
+    });
+    if ("error" in r && r.error) {
+      await edit(`❌ ${escapeHtml(r.error)}`, [[{ text: "⬅️ Back", callback_data: "copay" }]]);
+      return;
+    }
+    const view = binanceView((r as any).row);
     await edit(
-      `<b>C O N F I R M   O R D E R</b>\n──────────────\n${summary}\n──────────────\n🧾 Total: <b>${money(total)}</b>\n💰 Balance: ${money(fresh.balance)}\n\n<i>Payment is taken from your wallet balance.</i>`,
-      [
-        [{ text: "✅ Confirm & Pay", callback_data: "cgo" }],
-        [{ text: "⬅️ Back to cart", callback_data: "cart" }],
-      ],
+      `🧾 <b>Order:</b> ${escapeHtml(meta.summary ?? "")}\n\n${view.text}`,
+      view.kb,
     );
     return;
   }
 
-  if (data === "cgo") {
-    await doCheckout(chatId);
+  if (data === "orders") {
+    const view = await ordersView(chatId);
+    await edit(view.text, view.kb);
     return;
   }
 
@@ -1488,12 +1548,13 @@ async function handleCallback(cq: any) {
     return;
   }
 
-
   if (data.startsWith("buy:")) {
     const [, productId, n] = data.split(":");
-    await doBuy(chatId, productId!, Number(n));
+    const view = await startCheckout(chatId, [{ product_id: productId!, qty: Math.max(1, Number(n) || 1) }]);
+    if (view) await edit(view.text, view.kb);
     return;
   }
+
 
   if (data === "wallet") {
     const fresh = await getUser(chatId);
