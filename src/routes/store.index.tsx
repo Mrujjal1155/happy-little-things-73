@@ -10,6 +10,8 @@ import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/store/")({
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    typeof search["c"] === "string" ? { c: search["c"] as string } : {},
   head: () => ({
     meta: [
       { title: "All Products — QORIX Store" },
@@ -26,12 +28,15 @@ export const Route = createFileRoute("/store/")({
 function StorePage() {
   const fetchStore = useServerFn(listStorefront);
   const { data, isLoading } = useQuery({ queryKey: ["storefront"], queryFn: () => fetchStore() });
+  const { c } = Route.useSearch();
   const [cat, setCat] = useState<string>("all");
   const [q, setQ] = useState("");
 
   const categories = data?.categories ?? [];
+  const linked = c ? categories.find((x: any) => String(x.name).toLowerCase().includes(c.toLowerCase())) : undefined;
+  const activeCat = cat === "all" && linked ? (linked as any).id : cat;
   const products = ((data?.products ?? []) as StoreProduct[]).filter((p: any) => {
-    if (cat !== "all" && p.category_id !== cat) return false;
+    if (activeCat !== "all" && p.category_id !== activeCat) return false;
     if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   });
@@ -58,9 +63,9 @@ function StorePage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <CatPill active={cat === "all"} onClick={() => setCat("all")} label="All" />
+          <CatPill active={activeCat === "all"} onClick={() => setCat("all")} label="All" />
           {categories.map((c: any) => (
-            <CatPill key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} label={c.name} />
+            <CatPill key={c.id} active={activeCat === c.id} onClick={() => setCat(c.id)} label={c.name} />
           ))}
         </div>
 
@@ -69,7 +74,7 @@ function StorePage() {
             <Sparkles className="h-4 w-4" />
           </span>
           <h2 className="text-xl font-bold tracking-tight">
-            {cat === "all" ? "Featured Products" : categories.find((c: any) => c.id === cat)?.name}
+            {activeCat === "all" ? "Featured Products" : categories.find((x: any) => x.id === activeCat)?.name}
           </h2>
           <span className="h-px flex-1 bg-border" />
           <span className="text-sm text-muted-foreground">{products.length} items</span>

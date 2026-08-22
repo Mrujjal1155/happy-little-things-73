@@ -63,7 +63,14 @@ export const getStoreProduct = createServerFn({ method: "GET" })
       .eq("id", data.id)
       .eq("is_active", true)
       .maybeSingle();
-    return row ?? null;
+    if (!row) return null;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { count } = await supabaseAdmin
+      .from("stock_items")
+      .select("id", { count: "exact", head: true })
+      .eq("product_id", data.id)
+      .eq("is_sold", false);
+    return { ...row, stock: count ?? 0 };
   });
 
 export const getStorePayInfo = createServerFn({ method: "GET" }).handler(async () => {
