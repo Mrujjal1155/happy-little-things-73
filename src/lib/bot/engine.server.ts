@@ -750,6 +750,73 @@ async function doBuy(chatId: number, productId: string, qty: number) {
   await announcePurchase(user, product, qty);
 }
 
+async function doCheckout(chatId: number) {
+  let user = await getUser(chatId);
+  if (!user) return;
+  const { lines, total } = await cartDetails(user);
+  if (!lines.length) {
+    await say(chatId, "🧺 Your cart is empty.", [[{ text: "🛒 SHOP", callback_data: "shop:0" }]]);
+    return;
+  }
+  if (Number(user.balance) < total) {
+    await say(
+      chatId,
+      `❌ Insufficient balance. Cart total is ${money(total)} but your balance is ${money(user.balance)}.`,
+      [
+        [{ text: "💰 Add funds", callback_data: "wallet" }],
+        [{ text: "🧺 Cart", callback_data: "cart" }],
+      ],
+    );
+    return;
+  }
+
+  const ok: string[] = [];
+  const failed: string[] = [];
+  const remaining: CartLine[] = [];
+  let deliveries = "";
+  let paid = 0;
+
+  for (const line of lines) {
+    user = await getUser(chatId);
+    const result: any = await completePurchase(user, line.product, line.qty);
+    if (result.error) {
+      failed.push(`• ${line.product.name} — ${result.error}`);
+      remaining.push({ product_id: line.product.id, qty: line.qty });
+      continue;
+    }
+    paid += Number(result.total);
+    ok.push(
+      `• #${result.order?.order_no} — ${line.qty}× ${line.product.name} · ${money(result.total)}` +
+        (result.status === "completed" ? "" : " (manual, pending)"),
+    );
+    if (result.delivered) {
+      deliveries += `\n<b>${line.product.name}</b>\n<pre>${escapeHtml(result.delivered)}</pre>`;
+    }
+    if (result.status !== "completed") {
+      await notifyAdmins(
+        `🕐 <b>Manual order #${result.order?.order_no}</b>\nUser: <code>${chatId}</code>\n${line.qty}× ${line.product.name}`,
+      );
+    }
+    await announcePurchase(user, line.product, line.qty);
+  }
+
+  await writeCart(chatId, remaining);
+
+  let text = `<b>C H E C K O U T</b>\n──────────────\n`;
+  if (ok.length) text += `✅ <b>Order placed</b>\n${ok.join("\n")}\n\n💳 Paid: <b>${money(paid)}</b>\n`;
+  if (failed.length) text += `\n⚠️ <b>Not processed</b>\n${failed.join("\n")}\n<i>These items stay in your cart.</i>\n`;
+  if (deliveries) text += `\n🎁 <b>Your items</b>\n${deliveries}`;
+
+  const kb: Button[][] = [];
+  if (remaining.length) kb.push([{ text: "🧺 Cart", callback_data: "cart" }]);
+  kb.push([
+    { text: "🛒 SHOP", callback_data: "shop:0" },
+    { text: "🏠 Home", callback_data: "home" },
+  ]);
+  await say(chatId, text, kb);
+}
+
+
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
