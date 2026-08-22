@@ -46,9 +46,9 @@ export const Route = createFileRoute("/store/$id")({
 });
 
 const METHODS = [
-  { id: "binance", label: "Binance Pay", key: "binance_pay_id" },
-  { id: "usdt_bep20", label: "USDT · BEP-20", key: "usdt_bep20_address" },
-  { id: "usdt_trc20", label: "USDT · TRC-20", key: "usdt_trc20_address" },
+  { id: "binance", label: "Binance Pay", key: "binance_pay_id", icon: CreditCard, hint: "Pay ID transfer" },
+  { id: "usdt_bep20", label: "USDT · BEP-20", key: "usdt_bep20_address", icon: Coins, hint: "BNB Smart Chain" },
+  { id: "usdt_trc20", label: "USDT · TRC-20", key: "usdt_trc20_address", icon: Bitcoin, hint: "Tron network" },
 ] as const;
 
 function ProductPage() {
