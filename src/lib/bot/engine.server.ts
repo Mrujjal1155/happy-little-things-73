@@ -812,6 +812,50 @@ async function handleMessage(msg: any) {
     return;
   }
 
+  // shortcut commands
+  if (/^\/(shop|wallet|orders|profile|support|cart|checkout)\b/.test(text)) {
+    const cmd = text.slice(1).split(/[\s@]/)[0];
+    const fresh = await getUser(chatId);
+    if (cmd === "shop") {
+      const v = await shopView(0);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "wallet") {
+      const v = await walletView(fresh);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "orders") {
+      const v = await ordersView(chatId);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "cart") {
+      const v = await cartView(fresh);
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "checkout") {
+      const v = (await startCheckout(chatId, readCart(fresh))) ?? (await cartView(fresh));
+      await say(chatId, v.text, v.kb);
+    } else if (cmd === "profile") {
+      const { count } = await db
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("telegram_id", chatId);
+      await say(
+        chatId,
+        `<b>P R O F I L E</b>\n\n` +
+          `💳 Username: ${fresh.username ? "@" + fresh.username : "—"}\n` +
+          `🆔 UserID: <code>${fresh.telegram_id}</code>\n` +
+          `🏅 Membership: ${fresh.membership}\n` +
+          `💰 Balance: ${money(fresh.balance)}\n` +
+          `💎 Total Spent: ${money(fresh.total_spent)}\n` +
+          `📦 Orders: ${count ?? 0}\n` +
+          `🎟 Referrals: ${fresh.referral_count}`,
+        [[{ text: "🏠 Home", callback_data: "home" }]],
+      );
+    } else {
+      const s = await getSettings();
+      await say(chatId, s["support_text"] || "🆘 Contact support.", [[{ text: "🏠 Home", callback_data: "home" }]]);
+    }
+    return;
+  }
+
+
   if (text.startsWith("/admin")) {
     if (!(await isAdmin(chatId))) {
       await say(chatId, "⛔ You are not an admin.");
