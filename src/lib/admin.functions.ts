@@ -500,3 +500,49 @@ export const saveBinanceKeys = createServerFn({ method: "POST" })
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const, message: "Binance API keys saved and verified." };
   });
+
+export const listCoupons = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await (context as any).supabase
+      .from("coupons")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    return data ?? [];
+  });
+
+export const saveCoupon = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { code: string; percent: number; amount_off: number; max_uses: number }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const code = data.code.trim().toUpperCase();
+    if (!code) throw new Error("Coupon code is required");
+    const { error } = await (context as any).supabase.from("coupons").upsert(
+      {
+        code,
+        percent: Number(data.percent) || 0,
+        amount_off: Number(data.amount_off) || 0,
+        max_uses: Number(data.max_uses) || 0,
+        is_active: true,
+      },
+      { onConflict: "code" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const toggleCoupon = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; is_active: boolean }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await (context as any).supabase
+      .from("coupons")
+      .update({ is_active: data.is_active })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
