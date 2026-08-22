@@ -89,17 +89,28 @@ export function getMe() {
   return tg("getMe", {});
 }
 
+export const COMMAND_LIST = [
+  { command: "start", description: "Open the home menu" },
+  { command: "menu", description: "Back to the main menu" },
+  { command: "shop", description: "Browse the shop" },
+  { command: "cart", description: "View your cart" },
+  { command: "checkout", description: "Checkout and pay" },
+  { command: "orders", description: "View your orders" },
+  { command: "wallet", description: "Wallet & balance" },
+  { command: "deposit", description: "Add funds to your wallet" },
+  { command: "redeem", description: "Redeem a gift code" },
+  { command: "referral", description: "Referral store & your link" },
+  { command: "freebies", description: "Free stuff & giveaways" },
+  { command: "emails", description: "Emails & trials" },
+  { command: "api", description: "Reseller API info" },
+  { command: "profile", description: "View your profile" },
+  { command: "support", description: "Contact support" },
+  { command: "help", description: "Show all commands" },
+] as const;
+
 export function setMyCommands() {
   return tg("setMyCommands", {
-    commands: [
-      { command: "start", description: "Open the home menu" },
-      { command: "shop", description: "Browse the shop" },
-      { command: "cart", description: "View your cart" },
-      { command: "checkout", description: "Checkout and pay" },
-      { command: "orders", description: "View your orders" },
-      { command: "wallet", description: "View your wallet & balance" },
-      { command: "profile", description: "View your profile" },
-      { command: "support", description: "Contact support" },
-    ],
+    commands: COMMAND_LIST.map((c) => ({ command: c.command, description: c.description })),
   });
 }
+
