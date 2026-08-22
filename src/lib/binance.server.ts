@@ -65,7 +65,7 @@ async function signedGet(path: string, params: Record<string, string | number>, 
 
 /** Fetch (or create) the merchant's USDT deposit address for a network. */
 export async function getDepositAddress(network: string) {
-  const creds = getCreds();
+  const creds = await getCreds();
   if (!creds) return { ok: false as const, error: "Binance API keys are not configured." };
   const r = await signedGet("/sapi/v1/capital/deposit/address", { coin: "USDT", network }, creds);
   if (!r.ok || !r.data?.address) {
@@ -80,7 +80,7 @@ export type MatchResult =
 
 /** Look for a matching on-chain USDT deposit of `expected` amount. */
 export async function findCryptoDeposit(expected: number, network: string | null, isUsed: (tx: string) => Promise<boolean>): Promise<MatchResult> {
-  const creds = getCreds();
+  const creds = await getCreds();
   if (!creds) return { ok: false, pending: true, error: "Binance API keys are not configured." };
   const r = await signedGet(
     "/sapi/v1/capital/deposit/hisrec",
@@ -100,7 +100,7 @@ export async function findCryptoDeposit(expected: number, network: string | null
 
 /** Look for a matching Binance Pay (Pay ID) transfer of `expected` USDT. */
 export async function findPayTransaction(expected: number, isUsed: (tx: string) => Promise<boolean>): Promise<MatchResult> {
-  const creds = getCreds();
+  const creds = await getCreds();
   if (!creds) return { ok: false, pending: true, error: "Binance API keys are not configured." };
   const r = await signedGet("/sapi/v1/pay/transactions", { limit: 50, startTime: Date.now() - 2 * 60 * 60 * 1000 }, creds);
   if (!r.ok || !Array.isArray(r.data?.data)) return { ok: false, pending: true, error: r.ok ? undefined : String(r.error) };
@@ -115,9 +115,8 @@ export async function findPayTransaction(expected: number, isUsed: (tx: string) 
 }
 
 export async function checkBinanceKeys() {
-  const creds = getCreds();
-  if (!creds) return { ok: false as const, message: "BINANCE_API_KEY / BINANCE_API_SECRET are not set." };
-  const r = await signedGet("/sapi/v1/capital/config/getall", {}, creds);
-  if (!r.ok) return { ok: false as const, message: `Binance rejected the keys: ${r.error}` };
-  return { ok: true as const, message: "Binance API keys are valid." };
+  const creds = await getCreds();
+  if (!creds) return { ok: false as const, message: "API Key / Secret Key সেভ করা নেই।", saved: false as const };
+  const r = await validateCreds(creds);
+  return { ...r, saved: true as const };
 }
