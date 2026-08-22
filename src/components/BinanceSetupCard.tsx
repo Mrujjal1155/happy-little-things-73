@@ -26,7 +26,7 @@ export function BinanceSetupCard({
   values: Values;
   setValues: (v: Values) => void;
   onSave: () => void;
-  apiStatus?: { ok: boolean; message: string };
+  apiStatus?: { ok: boolean; message: string } | undefined;
 }) {
   const set = (k: string, v: string) => setValues({ ...values, [k]: v });
   const live = (values["binance_mode"] ?? "live") !== "personal";
