@@ -75,10 +75,28 @@ function adminIds(s: Record<string, string>) {
     .filter(Boolean);
 }
 
+function adminUsernames(s: Record<string, string>) {
+  return `${s["admin_usernames"] || ""}`
+    .split(/[,\s]+/)
+    .map((u) => u.replace(/^@/, "").toLowerCase())
+    .filter(Boolean);
+}
+
 async function isAdmin(telegramId: number, settings?: Record<string, string>) {
   const s = settings ?? (await getSettings());
-  return adminIds(s).includes(String(telegramId));
+  if (adminIds(s).includes(String(telegramId))) return true;
+
+  const names = adminUsernames(s);
+  if (!names.length) return false;
+  const { data } = await db
+    .from("bot_users")
+    .select("username")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  const uname = (data?.username || "").replace(/^@/, "").toLowerCase();
+  return Boolean(uname) && names.includes(uname);
 }
+
 
 async function notifyAdmins(text: string) {
   const s = await getSettings();
