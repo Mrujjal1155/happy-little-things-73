@@ -860,9 +860,83 @@ async function handleCallback(cq: any) {
       [1, 2, 3].map((n) => ({ text: `${n}×`, callback_data: `buy:${productId}:${n}` })),
       [5, 10].map((n) => ({ text: `${n}×`, callback_data: `buy:${productId}:${n}` })),
       [{ text: "✏️ Custom quantity", callback_data: `cq:${productId}` }],
+      [
+        { text: "➕ Add 1 to cart", callback_data: `cadd:${productId}:1` },
+        { text: "➕ Add 5", callback_data: `cadd:${productId}:5` },
+      ],
       [{ text: "⬅️ Back", callback_data: `p:${productId}` }],
     ];
     await edit("🔢 <b>Select quantity</b>", kb);
+    return;
+  }
+
+  if (data === "cart") {
+    const fresh = await getUser(chatId);
+    const view = await cartView(fresh);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (
+    data.startsWith("cadd:") ||
+    data.startsWith("cinc:") ||
+    data.startsWith("cdec:") ||
+    data.startsWith("crm:")
+  ) {
+    const [op, productId, n] = data.split(":");
+    const fresh = await getUser(chatId);
+    const cart = readCart(fresh);
+    const idx = cart.findIndex((l) => l.product_id === productId);
+    if (op === "crm") {
+      if (idx >= 0) cart.splice(idx, 1);
+    } else if (op === "cdec") {
+      if (idx >= 0) {
+        cart[idx]!.qty -= 1;
+        if (cart[idx]!.qty < 1) cart.splice(idx, 1);
+      }
+    } else {
+      const add = op === "cadd" ? Math.max(1, Number(n) || 1) : 1;
+      if (idx >= 0) cart[idx]!.qty = Math.min(999, cart[idx]!.qty + add);
+      else cart.push({ product_id: productId!, qty: add });
+    }
+    await writeCart(chatId, cart);
+    const updated = await getUser(chatId);
+    const view = await cartView(updated);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cclear") {
+    await writeCart(chatId, []);
+    const updated = await getUser(chatId);
+    const view = await cartView(updated);
+    await edit(view.text, view.kb);
+    return;
+  }
+
+  if (data === "cchk") {
+    const fresh = await getUser(chatId);
+    const { lines, total } = await cartDetails(fresh);
+    if (!lines.length) {
+      const view = await cartView(fresh);
+      await edit(view.text, view.kb);
+      return;
+    }
+    const summary = lines
+      .map((l) => `• ${l.qty}× ${l.product.name} — ${money(l.subtotal)}`)
+      .join("\n");
+    await edit(
+      `<b>C O N F I R M   O R D E R</b>\n──────────────\n${summary}\n──────────────\n🧾 Total: <b>${money(total)}</b>\n💰 Balance: ${money(fresh.balance)}\n\n<i>Payment is taken from your wallet balance.</i>`,
+      [
+        [{ text: "✅ Confirm & Pay", callback_data: "cgo" }],
+        [{ text: "⬅️ Back to cart", callback_data: "cart" }],
+      ],
+    );
+    return;
+  }
+
+  if (data === "cgo") {
+    await doCheckout(chatId);
     return;
   }
 
@@ -871,6 +945,7 @@ async function handleCallback(cq: any) {
     await say(chatId, "✏️ Send the quantity you want to buy.");
     return;
   }
+
 
   if (data.startsWith("buy:")) {
     const [, productId, n] = data.split(":");
