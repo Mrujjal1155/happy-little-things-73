@@ -528,20 +528,16 @@ async function cartView(user: any) {
     ]);
   }
   text +=
-    `──────────────\n🧾 Total: <b>${money(total)}</b>\n` +
+    `──────────────\n${uiTag(settings, "cart_total")}: <b>${money(total)}</b>\n` +
     `💰 Balance: ${money(user.balance)}\n`;
-  if (Number(user.balance) < total) text += `\n⚠️ Not enough balance — add funds in Wallet.\n`;
   if (issues) text += `\n⚠️ Some items exceed available stock.\n`;
 
-  kb.push([{ text: `✅ Checkout · ${money(total)}`, callback_data: "cchk" }]);
+  kb.push([uiBtn(settings, "cart_checkout", "cchk", `· ${money(total)}`)]);
   kb.push([
-    { text: "🛒 Continue shopping", callback_data: "shop:0" },
-    { text: "🧹 Clear cart", callback_data: "cclear" },
+    uiBtn(settings, "cart_continue", "shop:0"),
+    uiBtn(settings, "cart_clear", "cclear"),
   ]);
-  kb.push([
-    { text: "💰 Wallet", callback_data: "wallet" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "cart_wallet", "wallet"), uiBtn(settings, "cart_home", "home")]);
   return { text, kb };
 }
 
