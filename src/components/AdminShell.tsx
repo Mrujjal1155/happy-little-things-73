@@ -28,7 +28,6 @@ const NAV = [
   { to: "/admin/codes", label: "Codes", icon: Ticket },
   { to: "/admin/settings", label: "Settings", icon: Settings },
   { to: "/admin/webhook", label: "Webhook", icon: Radio },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ] as const;
 
 export function AdminShell({
