@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard/users")({
+export const Route = createFileRoute("/admin/users")({
   head: () => ({
     meta: [
       { title: "Users — Shop Bot Admin" },

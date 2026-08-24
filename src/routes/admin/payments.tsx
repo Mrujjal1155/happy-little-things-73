@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard/payments")({
+export const Route = createFileRoute("/admin/payments")({
   head: () => ({
     meta: [
       { title: "Payments — Shop Bot Admin" },

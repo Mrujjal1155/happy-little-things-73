@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard/webhook")({
+export const Route = createFileRoute("/admin/webhook")({
   head: () => ({
     meta: [
       { title: "Webhook Status — Shop Bot Admin" },
