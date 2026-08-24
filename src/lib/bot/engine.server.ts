@@ -2072,7 +2072,16 @@ async function handleCallback(cq: any) {
     } else if (action === "addbal") {
       await setState(chatId, { ...st, awaiting: "addbal" });
       await say(chatId, "➕ Send: <code>telegram_id amount</code>");
+    } else if (action === "newprod") {
+      await setState(chatId, { ...st, awaiting: "adm_newprod" });
+      await say(
+        chatId,
+        "🆕 <b>New product</b>\n\nSend one line:\n<code>icon | name | price | auto/manual</code>\n\n" +
+          "Example:\n<code>🤖 | Gemini AI Pro 18m | 4.5 | auto</code>\n\n" +
+          "The icon can be a Premium custom emoji too.",
+      );
     }
+
     return;
   }
 }
