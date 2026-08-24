@@ -7,6 +7,7 @@ import { StoreShell } from "@/components/StoreShell";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
+import { HeroAnimation } from "@/components/HeroAnimation";
 import logo from "@/assets/qorix-logo.png";
 import hero3d from "@/assets/hero-3d.jpg";
 
@@ -56,42 +57,16 @@ function Landing() {
               "radial-gradient(65% 60% at 50% 10%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, var(--background) 45%, transparent), var(--background))",
           }}
         />
-        <div className="relative mx-auto max-w-5xl px-4 pb-24 pt-24 text-center tilt-in">
-          <div className="float-3d mx-auto w-fit">
-            <img
-              src={logo}
-              alt="QORIX Store"
-              className="h-24 w-24 rounded-3xl object-cover shadow-2xl shadow-primary/40 ring-1 ring-primary/30"
-            />
-          </div>
-          <p className="mt-7 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-            <Sparkles className="h-3.5 w-3.5" /> Instant digital delivery
-          </p>
-          <h1 className="mt-5 text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl">
-            <span className="bg-gradient-to-b from-foreground to-primary bg-clip-text text-transparent">QORIX Store</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
-            AI Tools, VPN, Creative Apps &amp; more — at the best price, delivered in seconds.
-          </p>
-          <div className="mt-9 flex flex-wrap justify-center gap-3">
-            <Button asChild size="lg" className="rounded-full px-7 shadow-lg shadow-primary/30">
-              <Link to="/store">
-                <ShoppingBag className="h-4 w-4" /> Browse Products
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-full px-7 glass-panel">
-              <Link to="/track">
-                <MessageCircle className="h-4 w-4" /> Track Order
-              </Link>
-            </Button>
-          </div>
-          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-3">
+        <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 lg:pt-24">
+          <HeroAnimation />
+
+          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-3 gap-3">
             {[
               { icon: Zap, label: "Instant Delivery" },
               { icon: ShieldCheck, label: "Secure Crypto Pay" },
               { icon: Headphones, label: "24/7 Support" },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="glass-panel rounded-2xl px-3 py-4">
+              <div key={label} className="glass-panel rounded-2xl px-3 py-4 text-center">
                 <Icon className="mx-auto h-5 w-5 text-primary" />
                 <p className="mt-2 text-xs font-medium sm:text-sm">{label}</p>
               </div>
