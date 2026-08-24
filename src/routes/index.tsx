@@ -87,7 +87,7 @@ function Landing() {
                 <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
                   <CategoryIcon name={c.name} />
                 </span>
-                <h2 className="mt-3 text-sm font-semibold group-hover:text-primary">{c.name}</h2>
+                <h3 className="mt-3 text-sm font-semibold group-hover:text-primary">{c.name}</h3>
                 <p className="text-xs text-muted-foreground">{countFor(c.id)} products</p>
               </Link>
             ))}
