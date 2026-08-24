@@ -39,78 +39,57 @@ export function AdminShell({ title, children }: { title: string; children: React
   }
 
   return (
-    <div className="admin-theme flex min-h-screen">
-      {/* Vertical rail — nav sits beside the content, not above it */}
-      <aside className="sticky top-0 hidden h-screen w-[15rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="grid size-9 place-items-center rounded-md bg-primary text-lg font-black text-primary-foreground">
-            Q
-          </span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold tracking-tight">QORIX</p>
-            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Console</p>
+    <div className="admin-theme min-h-screen admin-grid-bg">
+      {/* Horizontal top nav — same layout on every device */}
+      <header className="sticky top-0 z-40 border-b border-sidebar-border bg-sidebar">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary text-lg font-black text-primary-foreground">
+              Q
+            </span>
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-sm font-semibold tracking-tight">QORIX</p>
+              <p className="truncate text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Console</p>
+            </div>
           </div>
+          <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={signOut}>
+            <LogOut className="size-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </Button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto py-2">
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 lg:px-7">
           {NAV.map((item) => (
             <Link
               key={item.to}
               to={item.to}
               activeOptions={{ exact: item.to === "/admin" }}
-              className="flex items-center gap-3 px-5 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              activeProps={{ className: "admin-rail-active text-sidebar-accent-foreground" }}
+              className="flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
             >
               <item.icon className="size-4 shrink-0" />
-              <span className="flex flex-col">
-                <span className="font-medium">{item.label}</span>
-                <span className="text-[0.65rem] uppercase tracking-wider opacity-60">{item.hint}</span>
-              </span>
+              <span className="whitespace-nowrap font-medium">{item.label}</span>
             </Link>
           ))}
         </nav>
+      </header>
 
-        <div className="border-t border-sidebar-border p-4">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={signOut}>
-            <LogOut className="size-4" /> Sign out
-          </Button>
-        </div>
-      </aside>
-
-      {/* Mobile rail */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-1 overflow-x-auto border-t border-sidebar-border bg-sidebar px-2 py-1.5 lg:hidden">
-        {NAV.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            activeOptions={{ exact: item.to === "/admin" }}
-            className="flex min-w-16 flex-col items-center gap-1 rounded-md px-2 py-1.5 text-[0.6rem] text-muted-foreground"
-            activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-          >
-            <item.icon className="size-4" />
-            {item.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="min-w-0 flex-1 admin-grid-bg">
-        <header className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-5 lg:px-8">
+      <div className="min-w-0">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/70 px-5 py-5 lg:px-8">
           <div className="min-w-0">
             <p className="text-[0.65rem] font-medium uppercase tracking-[0.3em] text-primary">Admin</p>
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
           </div>
-          <span className="ml-auto hidden items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
+          <span className="hidden shrink-0 items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
             <span className="size-1.5 rounded-full bg-success" /> Systems online
           </span>
-          <Button variant="outline" size="sm" className="lg:hidden" onClick={signOut}>
-            <LogOut className="size-4" />
-          </Button>
-        </header>
-        <main className="px-5 pb-24 pt-6 lg:px-8 lg:pb-10">{children}</main>
+        </div>
+        <main className="px-5 pb-10 pt-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
 }
+
 
 export function money(n: unknown) {
   return `$${Number(n ?? 0).toFixed(2)}`;
