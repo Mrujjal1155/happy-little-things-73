@@ -430,7 +430,7 @@ async function cartView(user: any) {
     const short = l.product.delivery_type === "auto" && l.stock < l.qty;
     if (short) issues++;
     text +=
-      `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n` +
+      `${productIconHtml(l.product)} <b>${l.product.name}</b>\n` +
       `   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>` +
       (short ? `  ⚠️ only ${l.stock} in stock` : "") +
       `\n`;
@@ -760,7 +760,7 @@ export async function announcePurchase(user: any, product: any, qty: number) {
   if (!chat) return;
   await sendMessage(
     chat,
-    `User ${maskUsername(user.username, user.first_name)} just bought ${qty}× ${product.emoji ?? ""} <b>${product.name}</b>!`,
+    `User ${maskUsername(user.username, user.first_name)} just bought ${qty}× ${productIconHtml(product)} <b>${product.name}</b>!`,
   );
 }
 
@@ -1409,14 +1409,12 @@ async function admUserView(targetId: number) {
 async function admStockPickView() {
   const { data } = await db
     .from("products")
-    .select("id,name,emoji")
+    .select("id,name,emoji,telegram_custom_emoji_id")
     .eq("is_active", true)
     .order("sort_order")
     .limit(20);
   if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
-  const kb: Button[][] = data.map((p: any) => [
-    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:sp:${p.id}` },
-  ]);
+  const kb: Button[][] = data.map((p: any) => [productIconButton(p, p.name, `adm:sp:${p.id}`)]);
   kb.push(ADM_BACK[0]!);
   return { text: "📦 Pick the product to add stock to:", kb };
 }
@@ -1501,7 +1499,7 @@ async function coView(chatId: number) {
   const { lines, subtotal, discount, total } = await coTotals(meta);
   let text = `<b>C H E C K O U T</b>\n──────────────\n`;
   for (const l of lines) {
-    text += `${l.product.emoji ?? "📦"} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
+    text += `${productIconHtml(l.product)} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
   }
   text += `──────────────\n🧾 Subtotal: ${money(subtotal)}\n`;
   if (meta.coupon) text += `🏷 Coupon <code>${escapeHtml(meta.coupon.code)}</code>: −${money(discount)}\n`;

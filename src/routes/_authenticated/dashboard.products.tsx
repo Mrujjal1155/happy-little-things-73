@@ -324,7 +324,7 @@ function ProductsPage() {
                           id: p.id,
                           name: p.name,
                           emoji: p.emoji ?? "📦",
-                           telegram_custom_emoji_id: p.telegram_custom_emoji_id ?? "",
+                          telegram_custom_emoji_id: p.telegram_custom_emoji_id ?? "",
                           description: p.description ?? "",
                           price: Number(p.price),
                           old_price: p.old_price ?? "",
