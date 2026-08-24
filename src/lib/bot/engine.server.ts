@@ -1220,6 +1220,80 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ ${MENU_ICONS[menuKey][1]} icon updated.`, [[{ text: "🎨 More menu icons", callback_data: "adm:menuicons" }], ADM_BACK[0]!]);
       return;
     }
+    case "adm_page_icon": {
+      state.awaiting = null;
+      const pageKey = String(state.adm_page_icon ?? "") as PageIconKey;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId)) || !(pageKey in PAGE_ICONS)) return;
+      const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+      const value = raw === "-" ? "" : customEmojiId || raw.slice(0, 16);
+      await db.from("bot_settings").upsert({ key: `page_icon_${pageKey}`, value }, { onConflict: "key" });
+      await say(chatId, `✅ ${PAGE_ICONS[pageKey][1]} icon updated.`, [
+        [{ text: "🖼 More page icons", callback_data: "adm:pageicons" }],
+        ADM_BACK[0]!,
+      ]);
+      return;
+    }
+    case "np_name": {
+      if (!(await isAdmin(chatId))) return;
+      const name = text.trim();
+      if (!name) {
+        await say(chatId, "❌ Send a valid product name.");
+        return;
+      }
+      state.np = { ...(state.np ?? {}), name };
+      state.awaiting = "np_price";
+      await setState(chatId, state);
+      await say(chatId, `🆕 <b>Step 2/6</b>\n\nSend the <b>price</b> in USD, e.g. <code>4.5</code>`, [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+      return;
+    }
+    case "np_price": {
+      if (!(await isAdmin(chatId))) return;
+      const price = Number(text.replace(/[^0-9.]/g, ""));
+      if (!price) {
+        await say(chatId, "❌ Send a valid price, e.g. <code>4.5</code>");
+        return;
+      }
+      state.np = { ...(state.np ?? {}), price };
+      state.awaiting = "np_icon";
+      await setState(chatId, state);
+      await say(
+        chatId,
+        "🆕 <b>Step 3/6</b>\n\nSend the product <b>icon</b> — a normal emoji or a Telegram <b>Premium custom emoji</b>. Send <code>-</code> to use 📦.",
+        [[{ text: "✖️ Cancel", callback_data: "adm:stats" }]],
+      );
+      return;
+    }
+    case "np_icon": {
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+      state.np = {
+        ...(state.np ?? {}),
+        icon: raw === "-" || !raw ? "📦" : raw.slice(0, 16),
+        custom_emoji_id: customEmojiId || "",
+      };
+      state.awaiting = "np_desc";
+      await setState(chatId, state);
+      await say(chatId, "🆕 <b>Step 4/6</b>\n\nSend a short <b>description</b>, or <code>-</code> to skip.", [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+      return;
+    }
+    case "np_desc": {
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const d = { ...(state.np ?? {}), description: raw === "-" ? "" : raw } as ProdDraft;
+      state.np = d;
+      state.awaiting = null;
+      await setState(chatId, state);
+      const v = await admWizardDeliveryView(d);
+      await say(chatId, v.text, v.kb);
+      return;
+    }
     case "adm_newprod": {
       state.awaiting = null;
       await setState(chatId, state);
@@ -1306,7 +1380,11 @@ export function adminKeyboard(): Button[][] {
       { text: "🎨 Product icons", callback_data: "adm:icons" },
       { text: "🧩 Menu icons", callback_data: "adm:menuicons" },
     ],
-    [{ text: "🆕 New product", callback_data: "adm:newprod" }],
+    [
+      { text: "🖼 Page icons", callback_data: "adm:pageicons" },
+      { text: "🆕 Add product", callback_data: "adm:npw" },
+    ],
+    [{ text: "⚡ Quick add (one line)", callback_data: "adm:newprod" }],
     [{ text: "🏠 Home", callback_data: "home" }],
 
   ];
@@ -2297,6 +2375,31 @@ async function handleCallback(cq: any) {
     } else if (action === "icons") {
       const v = await admIconPickView();
       await edit(v.text, v.kb);
+    } else if (action === "pageicons") {
+      const v = await admPageIconView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pi:")) {
+      const pageKey = arg as PageIconKey;
+      if (!(pageKey in PAGE_ICONS)) return;
+      await setState(chatId, { ...st, awaiting: "adm_page_icon", adm_page_icon: pageKey });
+      await say(
+        chatId,
+        `🖼 Send the new header icon for <b>${PAGE_ICONS[pageKey][1]}</b>.\n\nNormal emoji or Telegram Premium custom emoji both work. Send <code>-</code> to reset.`,
+      );
+    } else if (action === "npw") {
+      await setState(chatId, { ...st, awaiting: "np_name", np: {} });
+      await say(chatId, "🆕 <b>New product · step 1/6</b>\n\nSend the product <b>name</b>.", [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+    } else if (action.startsWith("npd:")) {
+      const d = { ...(st.np ?? {}), delivery_type: arg === "manual" ? "manual" : "auto" } as ProdDraft;
+      await setState(chatId, { ...st, awaiting: null, np: d });
+      const v = await admWizardCategoryView(d);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("npc:")) {
+      const d = { ...(st.np ?? {}), category_id: arg === "none" ? null : arg } as ProdDraft;
+      await setState(chatId, { ...st, awaiting: null, np: null });
+      await admCreateProduct(chatId, d);
     } else if (action === "menuicons") {
       const v = await admMenuIconView();
       await edit(v.text, v.kb);
