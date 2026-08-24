@@ -58,7 +58,7 @@ function Landing() {
           }}
         />
         <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 lg:pt-24">
-          <HeroAnimation items={(data?.heroItems ?? []) as any} />
+          <HeroAnimation items={(data?.heroItems ?? []) as any} products={products} />
 
           <FeatureButtons />
 
