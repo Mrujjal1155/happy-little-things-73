@@ -2050,11 +2050,8 @@ async function ordersView(chatId: number) {
   return {
     text,
     kb: [
-      [{ text: "🔄 Refresh", callback_data: "orders" }],
-      [
-        { text: "🛒 SHOP", callback_data: "shop:0" },
-        { text: "🏠 Home", callback_data: "home" },
-      ],
+      [uiBtn(settings, "ord_refresh", "orders")],
+      [uiBtn(settings, "ord_shop", "shop:0"), uiBtn(settings, "ord_home", "home")],
     ] as Button[][],
   };
 }
