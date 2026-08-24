@@ -58,20 +58,10 @@ function Landing() {
           }}
         />
         <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 lg:pt-24">
-          <HeroAnimation />
+          <HeroAnimation items={(data?.heroItems ?? []) as any} />
 
-          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-3 gap-3">
-            {[
-              { icon: Zap, label: "Instant Delivery" },
-              { icon: ShieldCheck, label: "Secure Crypto Pay" },
-              { icon: Headphones, label: "24/7 Support" },
-            ].map(({ icon: Icon, label }) => (
-              <div key={label} className="glass-panel rounded-2xl px-3 py-4 text-center">
-                <Icon className="mx-auto h-5 w-5 text-primary" />
-                <p className="mt-2 text-xs font-medium sm:text-sm">{label}</p>
-              </div>
-            ))}
-          </div>
+          <FeatureButtons />
+
         </div>
       </section>
 
