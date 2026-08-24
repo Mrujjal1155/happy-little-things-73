@@ -44,8 +44,10 @@ function StorePage() {
 
   return (
     <StoreShell>
-      <section className="mx-auto max-w-7xl px-4 py-10">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+      <section className="mx-auto max-w-7xl px-4 pt-6 pb-10">
+        <HeroAnimation />
+
+        <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">All products</h1>
             <p className="mt-1 text-sm text-muted-foreground">
