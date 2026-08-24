@@ -1119,7 +1119,53 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
       return;
     }
+    case "adm_icon": {
+      state.awaiting = null;
+      const productId = String(state.adm_product ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const icon = raw === "-" || !raw ? "📦" : raw.slice(0, 16);
+      const { data: p } = await db
+        .from("products")
+        .update({ emoji: icon })
+        .eq("id", productId)
+        .select("name")
+        .maybeSingle();
+      await say(
+        chatId,
+        p ? `✅ Icon updated: ${icon} <b>${escapeHtml(p.name)}</b>` : "❌ Product not found.",
+        [[{ text: "🎨 More icons", callback_data: "adm:icons" }], ADM_BACK[0]!],
+      );
+      return;
+    }
+    case "adm_newprod": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const parts = text.split("|").map((s) => s.trim());
+      const [icon, name, priceRaw, kind] = [parts[0] ?? "", parts[1] ?? "", parts[2] ?? "", parts[3] ?? "auto"];
+      const price = Number(String(priceRaw).replace(/[^0-9.]/g, ""));
+      if (!name || !price) {
+        await say(chatId, "❌ Format: <code>icon | name | price | auto/manual</code>", ADM_BACK);
+        return;
+      }
+      const { error } = await db.from("products").insert({
+        name,
+        emoji: icon || "📦",
+        price,
+        delivery_type: kind === "manual" ? "manual" : "auto",
+        is_active: true,
+      });
+      await say(
+        chatId,
+        error ? `❌ ${escapeHtml(error.message)}` : `✅ Product created: ${icon || "📦"} <b>${escapeHtml(name)}</b> — ${money(price)}`,
+        [[{ text: "📦 Add stock", callback_data: "adm:stock" }], ADM_BACK[0]!],
+      );
+      return;
+    }
     case "adm_code": {
+
       state.awaiting = null;
       await setState(chatId, state);
       if (!(await isAdmin(chatId))) return;
