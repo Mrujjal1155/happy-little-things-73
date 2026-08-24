@@ -248,7 +248,7 @@ export function HeroAnimation({
           </div>
 
           <Button asChild className="w-full rounded-full">
-            <Link to="/store" search={{ q: active?.name }} onClick={() => setActive(null)}>
+            <Link to="/store" search={active ? { q: active.name } : {}} onClick={() => setActive(null)}>
               <ShoppingBag className="h-4 w-4" /> View in store
             </Link>
           </Button>
