@@ -1848,21 +1848,18 @@ async function coView(chatId: number) {
   for (const l of lines) {
     text += `${productIconHtml(l.product)} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
   }
-  text += `──────────────\n🧾 Subtotal: ${money(subtotal)}\n`;
+  text += `──────────────\n${uiTag(settings, "co_subtotal")}: ${money(subtotal)}\n`;
   if (meta.coupon) text += `🏷 Coupon <code>${escapeHtml(meta.coupon.code)}</code>: −${money(discount)}\n`;
-  text += `💵 <b>Total to pay: ${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
+  text += `${uiTag(settings, "co_total")}: <b>${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
 
   const kb: Button[][] = [];
   kb.push([
     meta.coupon
-      ? { text: "🗑 Remove coupon", callback_data: "cocrm" }
-      : { text: "🏷 Apply coupon", callback_data: "cocpn" },
+      ? uiBtn(settings, "co_coupon_rm", "cocrm")
+      : uiBtn(settings, "co_coupon", "cocpn"),
   ]);
-  kb.push([{ text: `💳 Pay now · ${money(total)}`, callback_data: "copay" }]);
-  kb.push([
-    { text: "🛒 SHOP", callback_data: "shop:0" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "co_pay", "copay", `· ${money(total)}`)]);
+  kb.push([iconButton(settings, "shop", "shop:0"), iconButton(settings, "back", "home")]);
   return { text, kb };
 }
 
@@ -1875,13 +1872,13 @@ async function coPayView(chatId: number) {
   const user = await getUser(chatId);
   const kb: Button[][] = [];
   if (Number(user.balance) >= total && total > 0)
-    kb.push([{ text: `💰 Pay with balance (${money(user.balance)})`, callback_data: "copm:balance" }]);
-  if (cfg.active && cfg.payid) kb.push([{ text: "🪙 Binance Pay ID", callback_data: "copm:payid" }]);
+    kb.push([uiBtn(settings, "pay_balance", "copm:balance", `(${money(user.balance)})`)]);
+  if (cfg.active && cfg.payid) kb.push([uiBtn(settings, "pay_payid", "copm:payid")]);
   if (cfg.active && cfg.crypto) {
-    kb.push([{ text: "💵 USDT BEP-20 (BSC)", callback_data: "copm:BSC" }]);
-    kb.push([{ text: "💵 USDT TRC-20 (Tron)", callback_data: "copm:TRX" }]);
+    kb.push([uiBtn(settings, "pay_bep20", "copm:BSC")]);
+    kb.push([uiBtn(settings, "pay_trc20", "copm:TRX")]);
   }
-  kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
+  kb.push([uiBtn(settings, "pay_back", "co")]);
   return {
     text: `${pageIconHtml(settings, "payment")} <b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
 
