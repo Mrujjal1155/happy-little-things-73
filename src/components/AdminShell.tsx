@@ -42,36 +42,37 @@ export function AdminShell({ title, children }: { title: string; children: React
     <div className="admin-theme min-h-screen admin-grid-bg">
       {/* Horizontal top nav — same layout on every device */}
       <header className="sticky top-0 z-40 border-b border-sidebar-border bg-sidebar">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 lg:gap-4 lg:px-8">
+          <div className="flex shrink-0 items-center gap-2.5">
             <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary text-lg font-black text-primary-foreground">
               Q
             </span>
-            <div className="min-w-0 leading-tight">
+            <div className="hidden min-w-0 leading-tight md:block">
               <p className="truncate text-sm font-semibold tracking-tight">QORIX</p>
               <p className="truncate text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Console</p>
             </div>
           </div>
+
+          <nav className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain">
+            {NAV.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeOptions={{ exact: item.to === "/admin" }}
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
+              >
+                <item.icon className="size-4 shrink-0" />
+                <span className="font-medium">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+
           <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={signOut}>
             <LogOut className="size-4" />
             <span className="hidden sm:inline">Sign out</span>
           </Button>
         </div>
-
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 lg:px-7">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: item.to === "/admin" }}
-              className="flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-            >
-              <item.icon className="size-4 shrink-0" />
-              <span className="whitespace-nowrap font-medium">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
       </header>
 
       <div className="min-w-0">
