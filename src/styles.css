@@ -215,13 +215,59 @@
   animation: tilt-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.hero-orbit {
-  animation: hero-orbit 24s linear infinite;
+/* independent drift paths — each hero card moves on its own */
+@keyframes hero-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1.5deg); }
+  33% { transform: translate3d(14px, -18px, 0) rotate(1.5deg); }
+  66% { transform: translate3d(-10px, -8px, 0) rotate(-0.5deg); }
+}
+@keyframes hero-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(1deg); }
+  40% { transform: translate3d(-16px, 14px, 0) rotate(-2deg); }
+  70% { transform: translate3d(8px, 20px, 0) rotate(0.5deg); }
+}
+@keyframes hero-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(18px, 12px, 0) scale(1.04); }
+}
+@keyframes hero-drift-d {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(-14px, -14px, 0) rotate(2deg); }
+  75% { transform: translate3d(10px, -20px, 0) rotate(-1.5deg); }
 }
 
-.hero-orbit .hero-card {
-  animation: hero-card-float 3s ease-in-out infinite;
+.hero-float-0 { animation: hero-drift-a 9s ease-in-out infinite; }
+.hero-float-1 { animation: hero-drift-b 11s ease-in-out infinite; }
+.hero-float-2 { animation: hero-drift-c 8s ease-in-out infinite; }
+.hero-float-3 { animation: hero-drift-d 12s ease-in-out infinite; }
+.hero-float-4 { animation: hero-drift-b 10s ease-in-out infinite reverse; }
+.hero-float-5 { animation: hero-drift-a 13s ease-in-out infinite reverse; }
+
+/* clickable feature pills */
+@keyframes feature-ripple {
+  0% { opacity: 0.55; transform: scale(0.2); }
+  100% { opacity: 0; transform: scale(2.6); }
 }
+@keyframes feature-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.95); }
+  70% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+@keyframes feature-icon-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  60% { transform: rotate(200deg) scale(1.25); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes feature-reveal {
+  from { opacity: 0; max-height: 0; transform: translateY(-4px); }
+  to { opacity: 1; max-height: 90px; transform: translateY(0); }
+}
+.feature-ripple { animation: feature-ripple 0.7s ease-out forwards; }
+.feature-pop { animation: feature-pop 0.5s ease-out; }
+.feature-icon-active { animation: feature-icon-spin 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.feature-reveal { animation: feature-reveal 0.35s ease-out both; overflow: hidden; }
+
 
 .hero-hub {
   animation: hero-hub-pulse 3s ease-in-out infinite;
