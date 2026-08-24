@@ -154,7 +154,7 @@ export function HeroAnimation({
                   </span>
                 )}
                 <span className="truncate text-xs font-semibold">{item.name}</span>
-              </div>
+              </button>
             ))}
 
             {/* center hub */}
