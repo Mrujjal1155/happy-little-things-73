@@ -1173,7 +1173,12 @@ export function adminKeyboard(): Button[][] {
       { text: "📢 Broadcast", callback_data: "adm:broadcast" },
       { text: "➕ Add balance", callback_data: "adm:addbal" },
     ],
+    [
+      { text: "🎨 Product icons", callback_data: "adm:icons" },
+      { text: "🆕 New product", callback_data: "adm:newprod" },
+    ],
     [{ text: "🏠 Home", callback_data: "home" }],
+
   ];
 }
 
