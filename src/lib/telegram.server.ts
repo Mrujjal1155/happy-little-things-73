@@ -31,7 +31,12 @@ export async function tg(method: string, body: Record<string, unknown> = {}): Pr
   return json;
 }
 
-export type Button = { text: string; callback_data?: string; url?: string };
+export type Button = {
+  text: string;
+  callback_data?: string;
+  url?: string;
+  icon_custom_emoji_id?: string;
+};
 
 export function sendMessage(
   chat_id: number | string,

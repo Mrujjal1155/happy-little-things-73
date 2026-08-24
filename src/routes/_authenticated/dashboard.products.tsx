@@ -37,6 +37,7 @@ const EMPTY = {
   id: undefined as string | undefined,
   name: "",
   emoji: "📦",
+  telegram_custom_emoji_id: "",
   description: "",
   price: 0,
   old_price: "" as string | number,
@@ -85,6 +86,7 @@ function ProductsPage() {
           ...(form.id ? { id: form.id } : {}),
           name: form.name,
           emoji: form.emoji,
+          telegram_custom_emoji_id: form.telegram_custom_emoji_id || null,
           description: form.description,
           price: Number(form.price),
           old_price: form.old_price === "" ? null : Number(form.old_price),
@@ -182,6 +184,15 @@ function ProductsPage() {
             <div className="space-y-1">
               <Label>Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Telegram Premium custom emoji ID (optional)</Label>
+              <Input
+                inputMode="numeric"
+                value={form.telegram_custom_emoji_id}
+                onChange={(e) => setForm({ ...form, telegram_custom_emoji_id: e.target.value.trim() })}
+                placeholder="Telegram custom emoji ID"
+              />
             </div>
             <div className="space-y-1">
               <Label>Price</Label>
@@ -313,6 +324,7 @@ function ProductsPage() {
                           id: p.id,
                           name: p.name,
                           emoji: p.emoji ?? "📦",
+                           telegram_custom_emoji_id: p.telegram_custom_emoji_id ?? "",
                           description: p.description ?? "",
                           price: Number(p.price),
                           old_price: p.old_price ?? "",

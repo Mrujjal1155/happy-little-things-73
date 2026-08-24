@@ -102,6 +102,7 @@ export const saveProduct = createServerFn({ method: "POST" })
       category_id?: string | null;
       name: string;
       emoji?: string;
+      telegram_custom_emoji_id?: string | null;
       description?: string;
       price: number;
       old_price?: number | null;
@@ -125,6 +126,7 @@ export const saveProduct = createServerFn({ method: "POST" })
       image_url: rest.image_url || null,
       delivery_time: rest.delivery_time || null,
       badge: rest.badge || null,
+      telegram_custom_emoji_id: rest.telegram_custom_emoji_id || null,
     };
     const { error } = id
       ? await sb.from("products").update(row).eq("id", id)

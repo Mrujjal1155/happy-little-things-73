@@ -35,6 +35,48 @@ function refCode() {
   return "REF" + Math.random().toString(36).slice(2, 10).toUpperCase();
 }
 
+const MENU_ICONS = {
+  shop: ["🛒", "SHOP"], cart: ["🧺", "Cart"], orders: ["📦", "Orders"],
+  wallet: ["💰", "Wallet"], freebies: ["🎁", "Freebies"], profile: ["👤", "Profile"],
+  referral: ["🏪", "Referral Store"], support: ["🆘", "Support"], emails: ["📧", "Emails & Trials"],
+  api: ["🔌", "Reseller API"], clear: ["🧹", "Clear Chat"], refresh: ["🔄", "Refresh Stock"],
+  back: ["◀️", "Main Menu"],
+} as const;
+
+type MenuIconKey = keyof typeof MENU_ICONS;
+
+function iconButton(settings: Record<string, string>, key: MenuIconKey, callback_data: string, label?: string): Button {
+  const [fallback, defaultLabel] = MENU_ICONS[key];
+  const configured = (settings[`menu_icon_${key}`] ?? "").trim();
+  const customId = /^\d{8,}$/.test(configured) ? configured : "";
+  return {
+    text: `${customId ? "" : configured || fallback} ${label ?? defaultLabel}`.trim(),
+    callback_data,
+    ...(customId ? { icon_custom_emoji_id: customId } : {}),
+  };
+}
+
+function productIconHtml(product: any) {
+  const id = String(product?.telegram_custom_emoji_id ?? "").trim();
+  const fallback = escapeHtml(product?.emoji ?? "📦");
+  return id ? `<tg-emoji emoji-id="${id}">${fallback}</tg-emoji>` : fallback;
+}
+
+function productIconButton(product: any, text: string, callback_data: string): Button {
+  const id = String(product?.telegram_custom_emoji_id ?? "").trim();
+  return {
+    text: `${id ? "" : product?.emoji ?? "📦"} ${text}`.trim(),
+    callback_data,
+    ...(id ? { icon_custom_emoji_id: id } : {}),
+  };
+}
+
+function customEmojiIdFromMessage(msg: any): string {
+  const entity = [...(msg.entities ?? []), ...(msg.caption_entities ?? [])]
+    .find((item: any) => item?.type === "custom_emoji" && item?.custom_emoji_id);
+  return String(entity?.custom_emoji_id ?? "");
+}
+
 export async function getSettings(): Promise<Record<string, string>> {
   const { data } = await db.from("bot_settings").select("key,value");
   const out: Record<string, string> = {};
@@ -170,28 +212,28 @@ async function getUser(telegramId: number) {
 
 /* ------------------------------------------------------------------ views */
 
-function homeKeyboard(): Button[][] {
+function homeKeyboard(settings: Record<string, string>): Button[][] {
   return [
     [
-      { text: "🛒 SHOP", callback_data: "shop:0" },
-      { text: "🧺 Cart", callback_data: "cart" },
-      { text: "📦 Orders", callback_data: "orders" },
+      iconButton(settings, "shop", "shop:0"),
+      iconButton(settings, "cart", "cart"),
+      iconButton(settings, "orders", "orders"),
     ],
 
 
     [
-      { text: "💰 Wallet", callback_data: "wallet" },
-      { text: "🎁 Freebies", callback_data: "page:freebies_text" },
-      { text: "👤 Profile", callback_data: "profile" },
+      iconButton(settings, "wallet", "wallet"),
+      iconButton(settings, "freebies", "page:freebies_text"),
+      iconButton(settings, "profile", "profile"),
     ],
-    [{ text: "🏪 Referral Store", callback_data: "refstore" }],
+    [iconButton(settings, "referral", "refstore")],
     [
-      { text: "🆘 Support", callback_data: "page:support_text" },
-      { text: "📧 Emails & Trials", callback_data: "page:emails_trials_text" },
+      iconButton(settings, "support", "page:support_text"),
+      iconButton(settings, "emails", "page:emails_trials_text"),
     ],
     [
-      { text: "🔌 Reseller API", callback_data: "page:reseller_api_text" },
-      { text: "🧹 Clear Chat", callback_data: "clear" },
+      iconButton(settings, "api", "page:reseller_api_text"),
+      iconButton(settings, "clear", "clear"),
     ],
   ];
 }
@@ -233,25 +275,23 @@ async function productsWithStock() {
 const PAGE = 12;
 
 async function shopView(page: number) {
+  const settings = await getSettings();
   const products = await productsWithStock();
   const inStock = products.filter((p: any) => p.delivery_type === "manual" || p.stock > 0).length;
   const slice = products.slice(page * PAGE, page * PAGE + PAGE);
   const kb: Button[][] = slice.map((p: any) => [
-    {
-      text: `${p.emoji ?? "📦"} ${p.name} | ${money(p.price)} | ${
+    productIconButton(p, `${p.name} | ${money(p.price)} | ${
         p.delivery_type === "manual" ? "manual" : `📦 ${p.stock}`
-      }`,
-      callback_data: `p:${p.id}`,
-    },
+      }`, `p:${p.id}`),
   ]);
   const nav: Button[] = [];
   if (page > 0) nav.push({ text: "⬅️ Prev", callback_data: `shop:${page - 1}` });
   if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
   if (nav.length) kb.push(nav);
-  kb.push([{ text: "🔄 Refresh Stock", callback_data: `shop:${page}` }]);
+  kb.push([iconButton(settings, "refresh", `shop:${page}`)]);
   kb.push([
-    { text: "🧺 Cart", callback_data: "cart" },
-    { text: "◀️ Main Menu", callback_data: "home" },
+    iconButton(settings, "cart", "cart"),
+    iconButton(settings, "back", "home"),
   ]);
 
 
@@ -278,7 +318,7 @@ async function productView(productId: string) {
 
   let text = "";
   if (hasDrop) text += `🔥 <b>PRICE DROP</b>\n──────────────\n`;
-  text += `${p.emoji ?? "📦"} <b>${p.name}</b>\n\n`;
+  text += `${productIconHtml(p)} <b>${p.name}</b>\n\n`;
   if (p.description) text += `${p.description}\n\n`;
   if (hasDrop) {
     text += `📉 Price Drop\n<s>${money(p.old_price)}</s> ➡️ <b>${money(p.price)}</b>  🔻 Save ${off}%\n`;
@@ -748,7 +788,7 @@ async function handleMessage(msg: any) {
   if (text.startsWith("/start")) {
     await setState(chatId, { msgs: (user.state as any)?.msgs ?? [] });
     const fresh = await getUser(chatId);
-    await say(chatId, await homeText(fresh), homeKeyboard());
+    await say(chatId, await homeText(fresh), homeKeyboard(await getSettings()));
     return;
   }
 
@@ -767,13 +807,13 @@ async function handleMessage(msg: any) {
       api: "reseller_api_text",
     };
     if (cmd === "menu" || cmd === "home") {
-      await say(chatId, await homeText(fresh), homeKeyboard());
+      await say(chatId, await homeText(fresh), homeKeyboard(await getSettings()));
     } else if (cmd === "help" || cmd === "commands") {
       await say(
         chatId,
         `<b>C O M M A N D S</b>\n\n` +
           COMMAND_LIST.map((c) => `/${c.command} — ${c.description}`).join("\n"),
-        homeKeyboard(),
+        homeKeyboard(await getSettings()),
       );
     } else if (pageKeys[cmd]) {
       const s = await getSettings();
@@ -1125,18 +1165,31 @@ async function handleMessage(msg: any) {
       await setState(chatId, state);
       if (!(await isAdmin(chatId))) return;
       const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
       const icon = raw === "-" || !raw ? "📦" : raw.slice(0, 16);
       const { data: p } = await db
         .from("products")
-        .update({ emoji: icon })
+        .update({ emoji: icon, telegram_custom_emoji_id: customEmojiId || null })
         .eq("id", productId)
         .select("name")
         .maybeSingle();
       await say(
         chatId,
-        p ? `✅ Icon updated: ${icon} <b>${escapeHtml(p.name)}</b>` : "❌ Product not found.",
+        p ? `✅ Icon updated: ${customEmojiId ? `<tg-emoji emoji-id="${customEmojiId}">${escapeHtml(icon)}</tg-emoji>` : escapeHtml(icon)} <b>${escapeHtml(p.name)}</b>` : "❌ Product not found.",
         [[{ text: "🎨 More icons", callback_data: "adm:icons" }], ADM_BACK[0]!],
       );
+      return;
+    }
+    case "adm_menu_icon": {
+      state.awaiting = null;
+      const menuKey = String(state.adm_menu_icon ?? "") as MenuIconKey;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId)) || !(menuKey in MENU_ICONS)) return;
+      const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+      const value = raw === "-" ? "" : customEmojiId || raw.slice(0, 16);
+      await db.from("bot_settings").upsert({ key: `menu_icon_${menuKey}`, value }, { onConflict: "key" });
+      await say(chatId, `✅ ${MENU_ICONS[menuKey][1]} icon updated.`, [[{ text: "🎨 More menu icons", callback_data: "adm:menuicons" }], ADM_BACK[0]!]);
       return;
     }
     case "adm_newprod": {
@@ -1221,8 +1274,9 @@ export function adminKeyboard(): Button[][] {
     ],
     [
       { text: "🎨 Product icons", callback_data: "adm:icons" },
-      { text: "🆕 New product", callback_data: "adm:newprod" },
+      { text: "🧩 Menu icons", callback_data: "adm:menuicons" },
     ],
+    [{ text: "🆕 New product", callback_data: "adm:newprod" }],
     [{ text: "🏠 Home", callback_data: "home" }],
 
   ];
@@ -1370,18 +1424,28 @@ async function admStockPickView() {
 async function admIconPickView() {
   const { data } = await db
     .from("products")
-    .select("id,name,emoji")
+    .select("id,name,emoji,telegram_custom_emoji_id")
     .order("sort_order")
     .limit(30);
   if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
-  const kb: Button[][] = data.map((p: any) => [
-    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:ip:${p.id}` },
-  ]);
+  const kb: Button[][] = data.map((p: any) => [productIconButton(p, p.name, `adm:ip:${p.id}`)]);
   kb.push(ADM_BACK[0]!);
   return {
     text:
       "🎨 <b>Product icons</b>\n\nPick a product, then send the icon you want.\n" +
       "You can send a normal emoji or a <b>Telegram Premium custom emoji</b> — it will be used as the product icon.",
+    kb,
+  };
+}
+
+async function admMenuIconView() {
+  const settings = await getSettings();
+  const kb = (Object.keys(MENU_ICONS) as MenuIconKey[]).map((key) => [
+    iconButton(settings, key, `adm:mi:${key}`, MENU_ICONS[key][1]),
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return {
+    text: "🧩 <b>Menu icons</b>\n\nPick a shortcut, then send a normal emoji or Telegram Premium custom emoji. Send <code>-</code> to restore its default icon.",
     kb,
   };
 }
@@ -1672,7 +1736,7 @@ async function handleCallback(cq: any) {
 
   if (data === "home") {
     const fresh = await getUser(chatId);
-    await edit(await homeText(fresh), homeKeyboard());
+    await edit(await homeText(fresh), homeKeyboard(await getSettings()));
     return;
   }
 
@@ -2021,7 +2085,7 @@ async function handleCallback(cq: any) {
     await deleteMessage(chatId, messageId).catch(() => undefined);
     await setState(chatId, { ...state, msgs: [] });
     const fresh = await getUser(chatId);
-    await say(chatId, await homeText(fresh), homeKeyboard());
+    await say(chatId, await homeText(fresh), homeKeyboard(await getSettings()));
     return;
   }
 
@@ -2099,6 +2163,14 @@ async function handleCallback(cq: any) {
     } else if (action === "icons") {
       const v = await admIconPickView();
       await edit(v.text, v.kb);
+    } else if (action === "menuicons") {
+      const v = await admMenuIconView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("mi:")) {
+      const menuKey = arg as MenuIconKey;
+      if (!(menuKey in MENU_ICONS)) return;
+      await setState(chatId, { ...st, awaiting: "adm_menu_icon", adm_menu_icon: menuKey });
+      await say(chatId, `🧩 Send the new icon for <b>${MENU_ICONS[menuKey][1]}</b>.\n\nPremium custom emoji and normal emoji both work. Send <code>-</code> to reset.`);
     } else if (action.startsWith("ip:")) {
       await setState(chatId, { ...st, awaiting: "adm_icon", adm_product: arg });
       await say(
