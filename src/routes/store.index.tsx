@@ -8,6 +8,7 @@ import { StoreShell } from "@/components/StoreShell";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
+import { HeroAnimation } from "@/components/HeroAnimation";
 
 export const Route = createFileRoute("/store/")({
   validateSearch: (search: Record<string, unknown>): { c?: string } =>
