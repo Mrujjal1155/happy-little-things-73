@@ -2050,6 +2050,16 @@ async function handleCallback(cq: any) {
     } else if (action === "stock") {
       const v = await admStockPickView();
       await edit(v.text, v.kb);
+    } else if (action === "icons") {
+      const v = await admIconPickView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("ip:")) {
+      await setState(chatId, { ...st, awaiting: "adm_icon", adm_product: arg });
+      await say(
+        chatId,
+        "🎨 Send the icon for this product now.\n\nA normal emoji or a <b>Premium custom emoji</b> both work. Send <code>-</code> to reset to 📦.",
+      );
+
     } else if (action.startsWith("sp:")) {
       await setState(chatId, { ...st, awaiting: "adm_stock", adm_product: arg });
       await say(chatId, "📦 Send the stock items — one per line.");
