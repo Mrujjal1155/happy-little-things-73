@@ -148,8 +148,8 @@ export function StoreShell({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/auth" className="transition-colors hover:text-primary">
-                    Admin log in
+                  <Link to="/account" className="transition-colors hover:text-primary">
+                    My account
                   </Link>
                 </li>
               </ul>

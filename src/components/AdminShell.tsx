@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 
 const NAV = [
-  { to: "/dashboard", label: "Overview" },
-  { to: "/dashboard/products", label: "Products & Stock" },
-  { to: "/dashboard/orders", label: "Orders" },
-  { to: "/dashboard/payments", label: "Payments" },
-  { to: "/dashboard/users", label: "Users" },
-  { to: "/dashboard/codes", label: "Redeem Codes" },
-  { to: "/dashboard/settings", label: "Settings" },
-  { to: "/dashboard/webhook", label: "Webhook" },
+  { to: "/admin", label: "Overview" },
+  { to: "/admin/products", label: "Products & Stock" },
+  { to: "/admin/orders", label: "Orders" },
+  { to: "/admin/payments", label: "Payments" },
+  { to: "/admin/users", label: "Users" },
+  { to: "/admin/codes", label: "Redeem Codes" },
+  { to: "/admin/settings", label: "Settings" },
+  { to: "/admin/webhook", label: "Webhook" },
 
 ] as const;
 
@@ -37,7 +37,7 @@ export function AdminShell({ title, children }: { title: string; children: React
               <Link
                 key={item.to}
                 to={item.to}
-                activeOptions={{ exact: item.to === "/dashboard" }}
+                activeOptions={{ exact: item.to === "/admin" }}
                 className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                 activeProps={{ className: "bg-sidebar-accent text-foreground" }}
               >
