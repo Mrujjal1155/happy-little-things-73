@@ -1714,6 +1714,62 @@ async function admPageIconView() {
   };
 }
 
+/* ------------------------------- every button + tag of every page (UI kit) */
+
+const UI_GROUP_LABEL: Record<string, string> = {
+  shop: "🛍 Shop page",
+  product: "📦 Product page",
+  cart: "🧺 Cart page",
+  checkout: "🧾 Checkout page",
+  payment: "💳 Payment page",
+  wallet: "💰 Wallet page",
+  orders: "📬 Orders page",
+};
+
+async function admUiGroupView() {
+  const kb: Button[][] = UI_GROUPS.map((g) => [
+    { text: `${UI_GROUP_LABEL[g] ?? g} (${uiKeysOf(g).length})`, callback_data: `adm:uig:${g}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🎛 <b>UI icons &amp; tags</b>\n\nEvery button and tag of every page can be customized.\n" +
+      "Pick a page → pick an element → set a <b>Premium custom emoji</b> / normal emoji, or rename its text.",
+    kb,
+  };
+}
+
+async function admUiListView(group: string) {
+  const settings = await getSettings();
+  const keys = uiKeysOf(group);
+  if (!keys.length) return await admUiGroupView();
+  const kb: Button[][] = keys.map((k) => [uiBtn(settings, k, `adm:uie:${k}`)]);
+  kb.push([{ text: "⬅️ Pages", callback_data: "adm:ui" }]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `${UI_GROUP_LABEL[group] ?? group}\n\nTap the element you want to customize:`, kb };
+}
+
+async function admUiItemView(key: UiKey) {
+  const settings = await getSettings();
+  const entry = UI_ELEMENTS[key];
+  const text =
+    `🎛 <b>${escapeHtml(entry.label)}</b>\n──────────────\n` +
+    `Preview: ${uiTag(settings, key)}\n` +
+    `Current text: <b>${escapeHtml(uiText(settings, key))}</b>\n` +
+    `Default: ${escapeHtml(entry.icon)} ${escapeHtml(entry.label)}\n\n` +
+    `Choose what to change:`;
+  return {
+    text,
+    kb: [
+      [{ text: "🎨 Set icon", callback_data: `adm:uii:${key}` }],
+      [{ text: "✏️ Set text (tag)", callback_data: `adm:uit:${key}` }],
+      [{ text: "♻️ Reset to default", callback_data: `adm:uir:${key}` }],
+      [{ text: "⬅️ Back", callback_data: `adm:uig:${entry.group}` }],
+    ] as Button[][],
+  };
+}
+
+
 /* ------------------------------------------- step-by-step product wizard */
 
 type ProdDraft = {
