@@ -12,7 +12,15 @@ const NAV = [
   { to: "/account/profile", label: "Profile", icon: UserRound, exact: false },
 ] as const;
 
-export function AccountShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+export function AccountShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string | undefined;
+  children: ReactNode;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
