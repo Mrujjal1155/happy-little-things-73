@@ -98,6 +98,7 @@ export const COMMAND_LIST = [
   { command: "start", description: "Open the home menu" },
   { command: "menu", description: "Back to the main menu" },
   { command: "shop", description: "Browse the shop" },
+  { command: "flash", description: "Flash deals & discounts" },
   { command: "cart", description: "View your cart" },
   { command: "checkout", description: "Checkout and pay" },
   { command: "orders", description: "View your orders" },

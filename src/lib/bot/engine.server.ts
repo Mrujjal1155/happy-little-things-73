@@ -8,6 +8,16 @@ import {
   COMMAND_LIST,
   type Button,
 } from "@/lib/telegram.server";
+import {
+  UI_ELEMENTS,
+  UI_GROUPS,
+  uiBtn,
+  uiIconHtml,
+  uiKeysOf,
+  uiTag,
+  uiText,
+  type UiKey,
+} from "@/lib/bot/ui.server";
 
 
 const db = supabaseAdmin as any;
@@ -300,19 +310,30 @@ async function productsWithStock() {
 
 const PAGE = 12;
 
+function isFlash(p: any) {
+  return Number(p.old_price ?? 0) > Number(p.price) && (p.delivery_type === "manual" || (p.stock ?? 0) > 0);
+}
+
 async function shopView(page: number) {
   const settings = await getSettings();
   const products = await productsWithStock();
   const inStock = products.filter((p: any) => p.delivery_type === "manual" || p.stock > 0).length;
+  const flash = products.filter(isFlash);
   const slice = products.slice(page * PAGE, page * PAGE + PAGE);
-  const kb: Button[][] = slice.map((p: any) => [
-    productIconButton(p, `${p.name} | ${money(p.price)} | ${
-        p.delivery_type === "manual" ? "manual" : `📦 ${p.stock}`
-      }`, `p:${p.id}`),
-  ]);
+  const kb: Button[][] = [];
+  if (flash.length && page === 0) kb.push([uiBtn(settings, "shop_flash", "flash", `(${flash.length})`)]);
+  for (const p of slice) {
+    kb.push([
+      productIconButton(
+        p,
+        `${p.name} | ${money(p.price)} | ${p.delivery_type === "manual" ? "manual" : `📦 ${p.stock}`}`,
+        `p:${p.id}`,
+      ),
+    ]);
+  }
   const nav: Button[] = [];
-  if (page > 0) nav.push({ text: "⬅️ Prev", callback_data: `shop:${page - 1}` });
-  if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
+  if (page > 0) nav.push(uiBtn(settings, "shop_prev", `shop:${page - 1}`));
+  if (products.length > (page + 1) * PAGE) nav.push(uiBtn(settings, "shop_next", `shop:${page + 1}`));
   if (nav.length) kb.push(nav);
   kb.push([iconButton(settings, "refresh", `shop:${page}`)]);
   kb.push([
@@ -323,9 +344,49 @@ async function shopView(page: number) {
 
   const text =
     `${pageIconHtml(settings, "shop")} <b>P R O D U C T S</b>\n\n` +
-    `🟢 <b>${inStock} of ${products.length}</b> in stock\n` +
+    `${uiIconHtml(settings, "shop_instock")} <b>${inStock} of ${products.length}</b> ${uiText(settings, "shop_instock")}\n` +
+    (flash.length
+      ? `${uiTag(settings, "shop_flash")} — <b>${flash.length}</b> discounted item(s) live now\n`
+      : "") +
     `<i>Tap a product below to view details.</i>`;
   return { text, kb };
+}
+
+/** Flash / sale section — every product that currently runs a discount. */
+async function flashView() {
+  const settings = await getSettings();
+  const products = (await productsWithStock()).filter(isFlash);
+  const head = `${uiTag(settings, "shop_flash")}\n──────────────\n`;
+  if (!products.length) {
+    return {
+      text: `${head}\nNo active deals right now. Check back soon!`,
+      kb: [
+        [iconButton(settings, "shop", "shop:0")],
+        [iconButton(settings, "back", "home")],
+      ] as Button[][],
+    };
+  }
+  const list = products
+    .slice(0, 20)
+    .map((p: any) => {
+      const off = Math.round((1 - Number(p.price) / Number(p.old_price)) * 100);
+      return (
+        `${uiIconHtml(settings, "flash_tag")} <b>${escapeHtml(p.name)}</b> — <s>${money(p.old_price)}</s> → ` +
+        `<b>${money(p.price)}</b> (-${off}%)`
+      );
+    })
+    .join("\n");
+  const kb: Button[][] = products
+    .slice(0, 20)
+    .map((p: any) => [productIconButton(p, `${p.name} · ${money(p.price)}`, `p:${p.id}`)]);
+  kb.push([iconButton(settings, "refresh", "flash")]);
+  kb.push([iconButton(settings, "shop", "shop:0"), iconButton(settings, "back", "home")]);
+  return {
+    text:
+      `${head}${list}\n──────────────\n` +
+      `${uiTag(settings, "flash_timer")}\n<i>Tap a product to grab it before the deal ends:</i>`,
+    kb,
+  };
 }
 
 async function productView(productId: string) {
@@ -344,36 +405,33 @@ async function productView(productId: string) {
 
   const settings = await getSettings();
   let text = `${pageIconHtml(settings, "product")} <b>P R O D U C T</b>\n──────────────\n`;
-  if (hasDrop) text += `🔥 <b>PRICE DROP</b>\n──────────────\n`;
+  if (hasDrop) text += `${uiTag(settings, "prod_drop")}\n──────────────\n`;
   text += `${productIconHtml(p)} <b>${p.name}</b>\n\n`;
   if (p.description) text += `${p.description}\n\n`;
   if (hasDrop) {
-    text += `📉 Price Drop\n<s>${money(p.old_price)}</s> ➡️ <b>${money(p.price)}</b>  🔻 Save ${off}%\n`;
+    text += `<s>${money(p.old_price)}</s> ➡️ <b>${money(p.price)}</b>  ${uiTag(settings, "prod_save")} ${off}%\n`;
   } else {
-    text += `💎 Price: <b>${money(p.price)}</b>\n`;
+    text += `${uiTag(settings, "prod_price")}: <b>${money(p.price)}</b>\n`;
   }
   text +=
     p.delivery_type === "manual"
-      ? `📦 Delivery: manual (admin delivers)\n`
-      : `📦 In Stock: <b>${stock} available</b>\n`;
+      ? `${uiTag(settings, "prod_manual")}\n`
+      : `${uiTag(settings, "prod_stock")}: <b>${stock} available</b>\n`;
   if (p.manual_note) text += `\n<i>${p.manual_note}</i>\n`;
 
   const available = p.delivery_type === "manual" || stock > 0;
   const kb: Button[][] = [];
   if (available)
     kb.push([
-      { text: "🛒 Buy Now", callback_data: `qty:${p.id}` },
-      { text: "➕ Add to Cart", callback_data: `cadd:${p.id}:1` },
+      uiBtn(settings, "prod_buy", `qty:${p.id}`),
+      uiBtn(settings, "prod_addcart", `cadd:${p.id}:1`),
     ]);
-  else kb.push([{ text: "❌ Out of stock", callback_data: `p:${p.id}` }]);
+  else kb.push([uiBtn(settings, "prod_out", `p:${p.id}`)]);
   kb.push([
-    { text: "🔄 Refresh", callback_data: `p:${p.id}` },
-    { text: "⬅️ Back", callback_data: "shop:0" },
+    uiBtn(settings, "prod_refresh", `p:${p.id}`),
+    uiBtn(settings, "prod_back", "shop:0"),
   ]);
-  kb.push([
-    { text: "🧺 Cart", callback_data: "cart" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "prod_cart", "cart"), uiBtn(settings, "prod_home", "home")]);
   return { text, kb };
 }
 
@@ -439,18 +497,19 @@ async function cartDetails(user: any) {
 }
 
 async function cartView(user: any) {
+  const settings = await getSettings();
   const { lines, total } = await cartDetails(user);
   if (!lines.length) {
     return {
-      text: `<b>Y O U R   C A R T</b>\n\n🧺 Your cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
+      text: `${pageIconHtml(settings, "cart")} <b>Y O U R   C A R T</b>\n\nYour cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
       kb: [
-        [{ text: "🛒 SHOP", callback_data: "shop:0" }],
-        [{ text: "🏠 Home", callback_data: "home" }],
+        [iconButton(settings, "shop", "shop:0")],
+        [uiBtn(settings, "cart_home", "home")],
       ] as Button[][],
     };
   }
 
-  let text = `<b>Y O U R   C A R T</b>\n──────────────\n`;
+  let text = `${pageIconHtml(settings, "cart")} <b>Y O U R   C A R T</b>\n──────────────\n`;
   const kb: Button[][] = [];
   let issues = 0;
   for (const l of lines) {
@@ -469,20 +528,16 @@ async function cartView(user: any) {
     ]);
   }
   text +=
-    `──────────────\n🧾 Total: <b>${money(total)}</b>\n` +
+    `──────────────\n${uiTag(settings, "cart_total")}: <b>${money(total)}</b>\n` +
     `💰 Balance: ${money(user.balance)}\n`;
-  if (Number(user.balance) < total) text += `\n⚠️ Not enough balance — add funds in Wallet.\n`;
   if (issues) text += `\n⚠️ Some items exceed available stock.\n`;
 
-  kb.push([{ text: `✅ Checkout · ${money(total)}`, callback_data: "cchk" }]);
+  kb.push([uiBtn(settings, "cart_checkout", "cchk", `· ${money(total)}`)]);
   kb.push([
-    { text: "🛒 Continue shopping", callback_data: "shop:0" },
-    { text: "🧹 Clear cart", callback_data: "cclear" },
+    uiBtn(settings, "cart_continue", "shop:0"),
+    uiBtn(settings, "cart_clear", "cclear"),
   ]);
-  kb.push([
-    { text: "💰 Wallet", callback_data: "wallet" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "cart_wallet", "wallet"), uiBtn(settings, "cart_home", "home")]);
   return { text, kb };
 }
 
@@ -514,16 +569,12 @@ async function walletView(user: any) {
     `<i>Choose a payment method below to add funds to your wallet.</i>`;
   const kb: Button[][] = [];
   if (cfg.active && cfg.payid)
-    kb.push([{ text: `🪙 Binance Pay ${cfg.live ? "(auto)" : "(manual)"}`, callback_data: "dep:binance" }]);
-  if (cfg.active && cfg.crypto && cfg.live)
-    kb.push([{ text: "💵 USDT crypto (auto)", callback_data: "dep:usdt" }]);
-  kb.push([
-    { text: "📱 bKash", callback_data: "dep:bkash" },
-    { text: "📲 Nagad", callback_data: "dep:nagad" },
-  ]);
-  kb.push([{ text: "🎟 Redeem Code", callback_data: "redeem" }]);
-  kb.push([{ text: "🧾 Transaction History", callback_data: "hist:0" }]);
-  kb.push([{ text: "🏠 Home", callback_data: "home" }]);
+    kb.push([uiBtn(s, "wal_binance", "dep:binance", cfg.live ? "(auto)" : "(manual)")]);
+  if (cfg.active && cfg.crypto && cfg.live) kb.push([uiBtn(s, "wal_usdt", "dep:usdt")]);
+  kb.push([uiBtn(s, "wal_bkash", "dep:bkash"), uiBtn(s, "wal_nagad", "dep:nagad")]);
+  kb.push([uiBtn(s, "wal_redeem", "redeem")]);
+  kb.push([uiBtn(s, "wal_history", "hist:0")]);
+  kb.push([uiBtn(s, "wal_home", "home")]);
   return { text, kb };
 }
 
@@ -952,6 +1003,9 @@ async function handleMessage(msg: any) {
 
       const v = await shopView(0);
       await say(chatId, v.text, v.kb);
+    } else if (cmd === "flash" || cmd === "deals" || cmd === "sale") {
+      const v = await flashView();
+      await say(chatId, v.text, v.kb);
     } else if (cmd === "wallet") {
       const v = await walletView(fresh);
       await say(chatId, v.text, v.kb);
@@ -1272,6 +1326,26 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
       return;
     }
+    case "adm_ui_icon":
+    case "adm_ui_text": {
+      const mode = state.awaiting;
+      state.awaiting = null;
+      const uiKey = String(state.adm_ui_key ?? "") as UiKey;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId)) || !(uiKey in UI_ELEMENTS)) return;
+      const raw = text.trim();
+      if (mode === "adm_ui_icon") {
+        const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+        const value = raw === "-" ? "" : customEmojiId || raw.slice(0, 16);
+        await db.from("bot_settings").upsert({ key: `ui_icon_${uiKey}`, value }, { onConflict: "key" });
+      } else {
+        const value = raw === "-" ? "" : raw.slice(0, 40);
+        await db.from("bot_settings").upsert({ key: `ui_text_${uiKey}`, value }, { onConflict: "key" });
+      }
+      const v = await admUiItemView(uiKey);
+      await say(chatId, `✅ Updated.\n\n${v.text}`, v.kb);
+      return;
+    }
     case "adm_icon": {
       state.awaiting = null;
       const productId = String(state.adm_product ?? "");
@@ -1469,6 +1543,7 @@ export function adminKeyboard(): Button[][] {
       { text: "🖼 Page icons", callback_data: "adm:pageicons" },
       { text: "🆕 Add product", callback_data: "adm:npw" },
     ],
+    [{ text: "🎛 UI icons & tags", callback_data: "adm:ui" }],
     [{ text: "⚡ Quick add (one line)", callback_data: "adm:newprod" }],
     [{ text: "🏠 Home", callback_data: "home" }],
 
@@ -1663,6 +1738,62 @@ async function admPageIconView() {
   };
 }
 
+/* ------------------------------- every button + tag of every page (UI kit) */
+
+const UI_GROUP_LABEL: Record<string, string> = {
+  shop: "🛍 Shop page",
+  product: "📦 Product page",
+  cart: "🧺 Cart page",
+  checkout: "🧾 Checkout page",
+  payment: "💳 Payment page",
+  wallet: "💰 Wallet page",
+  orders: "📬 Orders page",
+};
+
+async function admUiGroupView() {
+  const kb: Button[][] = UI_GROUPS.map((g) => [
+    { text: `${UI_GROUP_LABEL[g] ?? g} (${uiKeysOf(g).length})`, callback_data: `adm:uig:${g}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🎛 <b>UI icons &amp; tags</b>\n\nEvery button and tag of every page can be customized.\n" +
+      "Pick a page → pick an element → set a <b>Premium custom emoji</b> / normal emoji, or rename its text.",
+    kb,
+  };
+}
+
+async function admUiListView(group: string) {
+  const settings = await getSettings();
+  const keys = uiKeysOf(group);
+  if (!keys.length) return await admUiGroupView();
+  const kb: Button[][] = keys.map((k) => [uiBtn(settings, k, `adm:uie:${k}`)]);
+  kb.push([{ text: "⬅️ Pages", callback_data: "adm:ui" }]);
+  kb.push(ADM_BACK[0]!);
+  return { text: `${UI_GROUP_LABEL[group] ?? group}\n\nTap the element you want to customize:`, kb };
+}
+
+async function admUiItemView(key: UiKey) {
+  const settings = await getSettings();
+  const entry = UI_ELEMENTS[key];
+  const text =
+    `🎛 <b>${escapeHtml(entry.label)}</b>\n──────────────\n` +
+    `Preview: ${uiTag(settings, key)}\n` +
+    `Current text: <b>${escapeHtml(uiText(settings, key))}</b>\n` +
+    `Default: ${escapeHtml(entry.icon)} ${escapeHtml(entry.label)}\n\n` +
+    `Choose what to change:`;
+  return {
+    text,
+    kb: [
+      [{ text: "🎨 Set icon", callback_data: `adm:uii:${key}` }],
+      [{ text: "✏️ Set text (tag)", callback_data: `adm:uit:${key}` }],
+      [{ text: "♻️ Reset to default", callback_data: `adm:uir:${key}` }],
+      [{ text: "⬅️ Back", callback_data: `adm:uig:${entry.group}` }],
+    ] as Button[][],
+  };
+}
+
+
 /* ------------------------------------------- step-by-step product wizard */
 
 type ProdDraft = {
@@ -1797,21 +1928,18 @@ async function coView(chatId: number) {
   for (const l of lines) {
     text += `${productIconHtml(l.product)} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
   }
-  text += `──────────────\n🧾 Subtotal: ${money(subtotal)}\n`;
+  text += `──────────────\n${uiTag(settings, "co_subtotal")}: ${money(subtotal)}\n`;
   if (meta.coupon) text += `🏷 Coupon <code>${escapeHtml(meta.coupon.code)}</code>: −${money(discount)}\n`;
-  text += `💵 <b>Total to pay: ${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
+  text += `${uiTag(settings, "co_total")}: <b>${money(total)}</b>\n\n<i>No wallet deposit needed — pay directly and submit your transaction ID.</i>`;
 
   const kb: Button[][] = [];
   kb.push([
     meta.coupon
-      ? { text: "🗑 Remove coupon", callback_data: "cocrm" }
-      : { text: "🏷 Apply coupon", callback_data: "cocpn" },
+      ? uiBtn(settings, "co_coupon_rm", "cocrm")
+      : uiBtn(settings, "co_coupon", "cocpn"),
   ]);
-  kb.push([{ text: `💳 Pay now · ${money(total)}`, callback_data: "copay" }]);
-  kb.push([
-    { text: "🛒 SHOP", callback_data: "shop:0" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "co_pay", "copay", `· ${money(total)}`)]);
+  kb.push([iconButton(settings, "shop", "shop:0"), iconButton(settings, "back", "home")]);
   return { text, kb };
 }
 
@@ -1824,13 +1952,13 @@ async function coPayView(chatId: number) {
   const user = await getUser(chatId);
   const kb: Button[][] = [];
   if (Number(user.balance) >= total && total > 0)
-    kb.push([{ text: `💰 Pay with balance (${money(user.balance)})`, callback_data: "copm:balance" }]);
-  if (cfg.active && cfg.payid) kb.push([{ text: "🪙 Binance Pay ID", callback_data: "copm:payid" }]);
+    kb.push([uiBtn(settings, "pay_balance", "copm:balance", `(${money(user.balance)})`)]);
+  if (cfg.active && cfg.payid) kb.push([uiBtn(settings, "pay_payid", "copm:payid")]);
   if (cfg.active && cfg.crypto) {
-    kb.push([{ text: "💵 USDT BEP-20 (BSC)", callback_data: "copm:BSC" }]);
-    kb.push([{ text: "💵 USDT TRC-20 (Tron)", callback_data: "copm:TRX" }]);
+    kb.push([uiBtn(settings, "pay_bep20", "copm:BSC")]);
+    kb.push([uiBtn(settings, "pay_trc20", "copm:TRX")]);
   }
-  kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
+  kb.push([uiBtn(settings, "pay_back", "co")]);
   return {
     text: `${pageIconHtml(settings, "payment")} <b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
 
@@ -1961,12 +2089,10 @@ async function fulfillCheckout(chatId: number, meta: CoMeta, methodKey: string, 
       `\n⏳ <b>${pending} item(s) need manual delivery.</b>\n` +
       `Our admin has been notified and will deliver here shortly. Please wait — you can check progress with /orders.\n`;
 
+  const settingsK = await getSettings();
   const kb: Button[][] = [
-    [{ text: "📦 My Orders", callback_data: "orders" }],
-    [
-      { text: "🛒 SHOP", callback_data: "shop:0" },
-      { text: "🏠 Home", callback_data: "home" },
-    ],
+    [uiBtn(settingsK, "ord_my", "orders")],
+    [uiBtn(settingsK, "ord_shop", "shop:0"), uiBtn(settingsK, "ord_home", "home")],
   ];
   return { text, kb };
 }
@@ -2004,11 +2130,8 @@ async function ordersView(chatId: number) {
   return {
     text,
     kb: [
-      [{ text: "🔄 Refresh", callback_data: "orders" }],
-      [
-        { text: "🛒 SHOP", callback_data: "shop:0" },
-        { text: "🏠 Home", callback_data: "home" },
-      ],
+      [uiBtn(settings, "ord_refresh", "orders")],
+      [uiBtn(settings, "ord_shop", "shop:0"), uiBtn(settings, "ord_home", "home")],
     ] as Button[][],
   };
 }
@@ -2034,6 +2157,12 @@ async function handleCallback(cq: any) {
   if (data === "home") {
     const fresh = await getUser(chatId);
     await edit(await homeText(fresh), homeKeyboard(await getSettings()));
+    return;
+  }
+
+  if (data === "flash") {
+    const view = await flashView();
+    await edit(view.text, view.kb);
     return;
   }
 
@@ -2462,6 +2591,36 @@ async function handleCallback(cq: any) {
       await edit(v.text, v.kb);
     } else if (action === "pageicons") {
       const v = await admPageIconView();
+      await edit(v.text, v.kb);
+    } else if (action === "ui") {
+      const v = await admUiGroupView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uig:")) {
+      const v = await admUiListView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uie:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      const v = await admUiItemView(arg as UiKey);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uii:") || action.startsWith("uit:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      const wantIcon = action.startsWith("uii:");
+      await setState(chatId, {
+        ...st,
+        awaiting: wantIcon ? "adm_ui_icon" : "adm_ui_text",
+        adm_ui_key: arg,
+      });
+      await say(
+        chatId,
+        wantIcon
+          ? `🎨 Send the new icon for <b>${escapeHtml(UI_ELEMENTS[arg as UiKey].label)}</b>.\n\nNormal emoji or Telegram Premium custom emoji both work. Send <code>-</code> to reset.`
+          : `✏️ Send the new text for <b>${escapeHtml(UI_ELEMENTS[arg as UiKey].label)}</b>.\n\nSend <code>-</code> to restore the default text.`,
+      );
+    } else if (action.startsWith("uir:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      await db.from("bot_settings").upsert({ key: `ui_icon_${arg}`, value: "" }, { onConflict: "key" });
+      await db.from("bot_settings").upsert({ key: `ui_text_${arg}`, value: "" }, { onConflict: "key" });
+      const v = await admUiItemView(arg as UiKey);
       await edit(v.text, v.kb);
     } else if (action.startsWith("pi:")) {
       const pageKey = arg as PageIconKey;
