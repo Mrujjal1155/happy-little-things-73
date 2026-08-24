@@ -569,16 +569,12 @@ async function walletView(user: any) {
     `<i>Choose a payment method below to add funds to your wallet.</i>`;
   const kb: Button[][] = [];
   if (cfg.active && cfg.payid)
-    kb.push([{ text: `🪙 Binance Pay ${cfg.live ? "(auto)" : "(manual)"}`, callback_data: "dep:binance" }]);
-  if (cfg.active && cfg.crypto && cfg.live)
-    kb.push([{ text: "💵 USDT crypto (auto)", callback_data: "dep:usdt" }]);
-  kb.push([
-    { text: "📱 bKash", callback_data: "dep:bkash" },
-    { text: "📲 Nagad", callback_data: "dep:nagad" },
-  ]);
-  kb.push([{ text: "🎟 Redeem Code", callback_data: "redeem" }]);
-  kb.push([{ text: "🧾 Transaction History", callback_data: "hist:0" }]);
-  kb.push([{ text: "🏠 Home", callback_data: "home" }]);
+    kb.push([uiBtn(s, "wal_binance", "dep:binance", cfg.live ? "(auto)" : "(manual)")]);
+  if (cfg.active && cfg.crypto && cfg.live) kb.push([uiBtn(s, "wal_usdt", "dep:usdt")]);
+  kb.push([uiBtn(s, "wal_bkash", "dep:bkash"), uiBtn(s, "wal_nagad", "dep:nagad")]);
+  kb.push([uiBtn(s, "wal_redeem", "redeem")]);
+  kb.push([uiBtn(s, "wal_history", "hist:0")]);
+  kb.push([uiBtn(s, "wal_home", "home")]);
   return { text, kb };
 }
 
