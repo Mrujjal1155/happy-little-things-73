@@ -56,6 +56,32 @@ function iconButton(settings: Record<string, string>, key: MenuIconKey, callback
   };
 }
 
+/** Page header icons — admin can replace each with a Premium custom emoji. */
+const PAGE_ICONS = {
+  home: ["🏠", "Home page"],
+  shop: ["🛍", "Shop page"],
+  product: ["📦", "Product page"],
+  checkout: ["🧾", "Checkout page"],
+  payment: ["💳", "Payment page"],
+  wallet: ["💰", "Wallet page"],
+  orders: ["📬", "Orders page"],
+  cart: ["🧺", "Cart page"],
+  profile: ["👤", "Profile page"],
+} as const;
+
+type PageIconKey = keyof typeof PAGE_ICONS;
+
+/** HTML for a page header icon (Premium custom emoji when configured). */
+export function pageIconHtml(settings: Record<string, string>, key: PageIconKey) {
+  const [fallback] = PAGE_ICONS[key];
+  const configured = (settings[`page_icon_${key}`] ?? "").trim();
+  const customId = /^\d{8,}$/.test(configured) ? configured : "";
+  const glyph = escapeHtml(customId ? fallback : configured || fallback);
+  return customId ? `<tg-emoji emoji-id="${customId}">${glyph}</tg-emoji>` : glyph;
+}
+
+
+
 function productIconHtml(product: any) {
   const id = String(product?.telegram_custom_emoji_id ?? "").trim();
   const fallback = escapeHtml(product?.emoji ?? "📦");
