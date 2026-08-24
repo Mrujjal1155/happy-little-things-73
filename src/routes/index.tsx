@@ -7,6 +7,7 @@ import { StoreShell } from "@/components/StoreShell";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
+import { HeroAnimation } from "@/components/HeroAnimation";
 import logo from "@/assets/qorix-logo.png";
 import hero3d from "@/assets/hero-3d.jpg";
 
