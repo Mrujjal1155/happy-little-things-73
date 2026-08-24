@@ -782,6 +782,88 @@ async function submitBinanceTxid(chatId: number, depId: string, txid: string, us
 }
 
 
+/* --------------------------------------------- automatic payment verifier */
+
+let lastSweep = 0;
+
+/**
+ * Scans every open Binance Pay / USDT deposit and settles the ones Binance has
+ * already received — no admin action and no user tap needed.
+ */
+export async function sweepBinanceDeposits(force = false) {
+  if (!force && Date.now() - lastSweep < 45_000) return { skipped: true, settled: 0 };
+  lastSweep = Date.now();
+
+  const nowIso = new Date().toISOString();
+  const { data: rows } = await db
+    .from("binance_deposits")
+    .select("*")
+    .neq("status", "credited")
+    .neq("status", "expired")
+    .gt("expires_at", nowIso)
+    .order("created_at", { ascending: true })
+    .limit(25);
+
+  if (!rows?.length) return { skipped: false, settled: 0 };
+
+  const { findCryptoDeposit, findPayTransaction, findByTxId } = await import("@/lib/binance.server");
+  let settled = 0;
+
+  for (const row of rows) {
+    const expected = Number(row.amount_usdt);
+    let txId: string | null = null;
+    let amount = expected;
+
+    // 1) If the user already gave us a TXID, confirm that exact transaction.
+    if (row.tx_id && !(await txUsed(row.tx_id))) {
+      const byId = await findByTxId(String(row.tx_id));
+      if (byId.ok && Math.abs(Number(byId.amount) - expected) < 0.01) {
+        txId = String(row.tx_id);
+        amount = Number(byId.amount);
+      }
+    }
+
+    // 2) Otherwise match by the unique amount in Binance Pay / deposit history.
+    if (!txId) {
+      const result =
+        row.kind === "payid"
+          ? await findPayTransaction(expected, txUsed)
+          : await findCryptoDeposit(expected, row.network, txUsed);
+      if (result.ok) {
+        txId = result.txId;
+        amount = Number(result.amount);
+      }
+    }
+
+    if (!txId) continue;
+
+    const { error: usedErr } = await db.from("binance_used_txs").insert({ tx_id: txId });
+    if (usedErr) continue; // another worker took it
+
+    const res = await settlePayment(
+      Number(row.telegram_id),
+      row,
+      amount,
+      txId,
+      "Auto-verified via Binance API (background check)",
+    );
+    settled++;
+    await db
+      .from("payment_requests")
+      .update({ status: "approved", admin_note: "Auto-verified via Binance API" })
+      .eq("telegram_id", row.telegram_id)
+      .eq("txid", txId)
+      .eq("status", "pending");
+    try {
+      await sendMessage(Number(row.telegram_id), res.message, res.keyboard);
+    } catch {
+      /* user blocked the bot */
+    }
+  }
+
+  return { skipped: false, settled };
+}
+
 export async function announcePurchase(user: any, product: any, qty: number) {
   const s = await getSettings();
   const chat = s["announce_chat_id"];
@@ -795,6 +877,9 @@ export async function announcePurchase(user: any, product: any, qty: number) {
 /* ------------------------------------------------------------- dispatchers */
 
 export async function handleUpdate(update: any) {
+  // Every interaction also runs a throttled background payment check, so
+  // Binance Pay / USDT deposits get approved automatically.
+  void sweepBinanceDeposits().catch(() => {});
   if (update.callback_query) return handleCallback(update.callback_query);
   const msg = update.message ?? update.edited_message;
   if (msg) return handleMessage(msg);

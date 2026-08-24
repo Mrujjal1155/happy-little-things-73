@@ -2,7 +2,16 @@
 // Mirrors the paykori.online gateway logic: signed SAPI requests with HMAC-SHA256.
 import { createHmac } from "crypto";
 
-const BASE = "https://api.binance.com";
+// api.binance.com is frequently blocked (HTTP 403 / 451) from datacenter IPs.
+// Try every public mirror before giving up — this is what made auto-verify fail.
+const HOSTS = [
+  "https://api.binance.com",
+  "https://api1.binance.com",
+  "https://api2.binance.com",
+  "https://api3.binance.com",
+  "https://api4.binance.com",
+  "https://api-gcp.binance.com",
+];
 
 export type BinanceCreds = { apiKey: string; secretKey: string };
 
@@ -47,27 +56,49 @@ function cleanError(msg: unknown, status: number) {
 }
 
 async function signedGet(path: string, params: Record<string, string | number>, creds: BinanceCreds) {
-  const query = new URLSearchParams({
-    ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-    timestamp: String(Date.now()),
-    recvWindow: "10000",
-  }).toString();
-  const signature = createHmac("sha256", creds.secretKey).update(query).digest("hex");
-  const res = await fetch(`${BASE}${path}?${query}&signature=${signature}`, {
-    headers: { "X-MBX-APIKEY": creds.apiKey },
-  });
-  const body = await res.text();
-  let json: any = null;
-  try {
-    json = JSON.parse(body);
-  } catch {
-    /* non-json */
+  let last: { ok: false; status: number; error: string; data: any } | null = null;
+
+  for (const host of HOSTS) {
+    const query = new URLSearchParams({
+      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      timestamp: String(Date.now()),
+      recvWindow: "10000",
+    }).toString();
+    const signature = createHmac("sha256", creds.secretKey).update(query).digest("hex");
+
+    let res: Response;
+    try {
+      res = await fetch(`${host}${path}?${query}&signature=${signature}`, {
+        headers: {
+          "X-MBX-APIKEY": creds.apiKey,
+          // Some edges reject requests without a browser-ish UA.
+          "User-Agent": "Mozilla/5.0 (compatible; QorixBot/1.0)",
+          Accept: "application/json",
+        },
+      });
+    } catch {
+      last = { ok: false, status: 0, error: "Binance API unreachable (network error).", data: null };
+      continue;
+    }
+
+    const body = await res.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(body);
+    } catch {
+      /* non-json */
+    }
+
+    if (res.ok) return { ok: true as const, status: res.status, data: json, error: null };
+
+    console.error(`Binance ${host}${path} failed [${res.status}]: ${body.slice(0, 200)}`);
+    last = { ok: false, status: res.status, error: cleanError(json?.msg, res.status), data: json };
+    // Geo/edge blocks are host specific — retry on the next mirror.
+    // Real API errors (bad key, bad params) repeat everywhere, so stop early.
+    if (![403, 429, 451, 503, 0].includes(res.status)) break;
   }
-  if (!res.ok) {
-    console.error(`Binance ${path} failed [${res.status}]: ${body}`);
-    return { ok: false as const, status: res.status, error: cleanError(json?.msg, res.status), data: json };
-  }
-  return { ok: true as const, status: res.status, data: json, error: null };
+
+  return last ?? { ok: false as const, status: 0, error: "Binance API unreachable.", data: null };
 }
 
 /** Fetch (or create) the merchant's USDT deposit address for a network. */
