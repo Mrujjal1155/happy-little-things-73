@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Clock,
   Headphones,
@@ -10,14 +10,28 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  UserRound,
 } from "lucide-react";
 import logo from "@/assets/qorix-logo.png";
+import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "@/components/theme";
 import { CategoryIcon } from "@/components/CategoryIcon";
 
 const CATEGORY_LINKS = ["AI Tools", "Creative", "Productivity", "VPN", "Streaming", "Social"];
 
+function useSignedIn() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  return signedIn;
+}
+
 export function StoreShell({ children }: { children: ReactNode }) {
+  const signedIn = useSignedIn();
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
