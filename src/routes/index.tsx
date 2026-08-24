@@ -36,6 +36,8 @@ function Landing() {
   const categories = data?.categories ?? [];
   const products = (data?.products ?? []) as StoreProduct[];
   const countFor = (id: string) => products.filter((p: any) => p.category_id === id).length;
+  /* keep rows perfectly filled (5 per row) so no odd dangling card */
+  const visibleCategories = categories.slice(0, Math.max(5, Math.floor(categories.length / 5) * 5));
 
   return (
     <StoreShell>
