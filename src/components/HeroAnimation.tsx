@@ -131,9 +131,12 @@ export function HeroAnimation({
         <div className="relative mx-auto w-full max-w-md">
           <div className="relative h-72 sm:h-80">
             {cards.map((item, i) => (
-              <div
+              <button
+                type="button"
                 key={item.id ?? item.name}
-                className={`absolute ${SPOTS[i % SPOTS.length]} hero-float-${i % 6} flex w-40 items-center gap-2.5 rounded-xl border border-border bg-card/95 p-2.5 shadow-lg backdrop-blur transition-transform hover:scale-[1.06]`}
+                onClick={() => setActive(item)}
+                aria-label={`View ${item.name} products`}
+                className={`absolute ${SPOTS[i % SPOTS.length]} hero-float-${i % 6} flex w-40 cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-card/95 p-2.5 text-left shadow-lg backdrop-blur transition-transform hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
                 style={{ animationDelay: `${i * 0.7}s` }}
               >
                 {item.image_url ? (
