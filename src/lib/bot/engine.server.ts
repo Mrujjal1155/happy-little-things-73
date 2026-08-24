@@ -248,11 +248,12 @@ async function shopView(page: number) {
   if (page > 0) nav.push({ text: "⬅️ Prev", callback_data: `shop:${page - 1}` });
   if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
   if (nav.length) kb.push(nav);
+  kb.push([{ text: "🔄 Refresh Stock", callback_data: `shop:${page}` }]);
   kb.push([
     { text: "🧺 Cart", callback_data: "cart" },
-    { text: "🔄 Refresh", callback_data: `shop:${page}` },
-    { text: "🏠 Home", callback_data: "home" },
+    { text: "◀️ Main Menu", callback_data: "home" },
   ]);
+
 
   const text =
     `<b>P R O D U C T S</b>\n\n` +
