@@ -2157,6 +2157,12 @@ async function handleCallback(cq: any) {
     return;
   }
 
+  if (data === "flash") {
+    const view = await flashView();
+    await edit(view.text, view.kb);
+    return;
+  }
+
   if (data.startsWith("shop:")) {
     const page = Number(data.split(":")[1] || 0);
     const view = await shopView(page);
