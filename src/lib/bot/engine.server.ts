@@ -56,6 +56,32 @@ function iconButton(settings: Record<string, string>, key: MenuIconKey, callback
   };
 }
 
+/** Page header icons — admin can replace each with a Premium custom emoji. */
+const PAGE_ICONS = {
+  home: ["🏠", "Home page"],
+  shop: ["🛍", "Shop page"],
+  product: ["📦", "Product page"],
+  checkout: ["🧾", "Checkout page"],
+  payment: ["💳", "Payment page"],
+  wallet: ["💰", "Wallet page"],
+  orders: ["📬", "Orders page"],
+  cart: ["🧺", "Cart page"],
+  profile: ["👤", "Profile page"],
+} as const;
+
+type PageIconKey = keyof typeof PAGE_ICONS;
+
+/** HTML for a page header icon (Premium custom emoji when configured). */
+export function pageIconHtml(settings: Record<string, string>, key: PageIconKey) {
+  const [fallback] = PAGE_ICONS[key];
+  const configured = (settings[`page_icon_${key}`] ?? "").trim();
+  const customId = /^\d{8,}$/.test(configured) ? configured : "";
+  const glyph = escapeHtml(customId ? fallback : configured || fallback);
+  return customId ? `<tg-emoji emoji-id="${customId}">${glyph}</tg-emoji>` : glyph;
+}
+
+
+
 function productIconHtml(product: any) {
   const id = String(product?.telegram_custom_emoji_id ?? "").trim();
   const fallback = escapeHtml(product?.emoji ?? "📦");
@@ -296,7 +322,7 @@ async function shopView(page: number) {
 
 
   const text =
-    `<b>P R O D U C T S</b>\n\n` +
+    `${pageIconHtml(settings, "shop")} <b>P R O D U C T S</b>\n\n` +
     `🟢 <b>${inStock} of ${products.length}</b> in stock\n` +
     `<i>Tap a product below to view details.</i>`;
   return { text, kb };
@@ -316,7 +342,8 @@ async function productView(productId: string) {
     ? Math.round((1 - Number(p.price) / Number(p.old_price)) * 100)
     : 0;
 
-  let text = "";
+  const settings = await getSettings();
+  let text = `${pageIconHtml(settings, "product")} <b>P R O D U C T</b>\n──────────────\n`;
   if (hasDrop) text += `🔥 <b>PRICE DROP</b>\n──────────────\n`;
   text += `${productIconHtml(p)} <b>${p.name}</b>\n\n`;
   if (p.description) text += `${p.description}\n\n`;
@@ -476,8 +503,9 @@ export async function binanceConfig() {
 
 async function walletView(user: any) {
   const cfg = await binanceConfig();
+  const s = await getSettings();
   const text =
-    `<b>W A L L E T</b>\n\n` +
+    `${pageIconHtml(s, "wallet")} <b>W A L L E T</b>\n\n` +
     `Your Balance and Spending Stats are:\n──────────────\n` +
     `💰 Balance: <b>${money(user.balance)}</b>\n` +
     `💎 Total Spent: ${money(user.total_spent)}\n` +
@@ -1192,6 +1220,80 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ ${MENU_ICONS[menuKey][1]} icon updated.`, [[{ text: "🎨 More menu icons", callback_data: "adm:menuicons" }], ADM_BACK[0]!]);
       return;
     }
+    case "adm_page_icon": {
+      state.awaiting = null;
+      const pageKey = String(state.adm_page_icon ?? "") as PageIconKey;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId)) || !(pageKey in PAGE_ICONS)) return;
+      const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+      const value = raw === "-" ? "" : customEmojiId || raw.slice(0, 16);
+      await db.from("bot_settings").upsert({ key: `page_icon_${pageKey}`, value }, { onConflict: "key" });
+      await say(chatId, `✅ ${PAGE_ICONS[pageKey][1]} icon updated.`, [
+        [{ text: "🖼 More page icons", callback_data: "adm:pageicons" }],
+        ADM_BACK[0]!,
+      ]);
+      return;
+    }
+    case "np_name": {
+      if (!(await isAdmin(chatId))) return;
+      const name = text.trim();
+      if (!name) {
+        await say(chatId, "❌ Send a valid product name.");
+        return;
+      }
+      state.np = { ...(state.np ?? {}), name };
+      state.awaiting = "np_price";
+      await setState(chatId, state);
+      await say(chatId, `🆕 <b>Step 2/6</b>\n\nSend the <b>price</b> in USD, e.g. <code>4.5</code>`, [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+      return;
+    }
+    case "np_price": {
+      if (!(await isAdmin(chatId))) return;
+      const price = Number(text.replace(/[^0-9.]/g, ""));
+      if (!price) {
+        await say(chatId, "❌ Send a valid price, e.g. <code>4.5</code>");
+        return;
+      }
+      state.np = { ...(state.np ?? {}), price };
+      state.awaiting = "np_icon";
+      await setState(chatId, state);
+      await say(
+        chatId,
+        "🆕 <b>Step 3/6</b>\n\nSend the product <b>icon</b> — a normal emoji or a Telegram <b>Premium custom emoji</b>. Send <code>-</code> to use 📦.",
+        [[{ text: "✖️ Cancel", callback_data: "adm:stats" }]],
+      );
+      return;
+    }
+    case "np_icon": {
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+      state.np = {
+        ...(state.np ?? {}),
+        icon: raw === "-" || !raw ? "📦" : raw.slice(0, 16),
+        custom_emoji_id: customEmojiId || "",
+      };
+      state.awaiting = "np_desc";
+      await setState(chatId, state);
+      await say(chatId, "🆕 <b>Step 4/6</b>\n\nSend a short <b>description</b>, or <code>-</code> to skip.", [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+      return;
+    }
+    case "np_desc": {
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const d = { ...(state.np ?? {}), description: raw === "-" ? "" : raw } as ProdDraft;
+      state.np = d;
+      state.awaiting = null;
+      await setState(chatId, state);
+      const v = await admWizardDeliveryView(d);
+      await say(chatId, v.text, v.kb);
+      return;
+    }
     case "adm_newprod": {
       state.awaiting = null;
       await setState(chatId, state);
@@ -1278,7 +1380,11 @@ export function adminKeyboard(): Button[][] {
       { text: "🎨 Product icons", callback_data: "adm:icons" },
       { text: "🧩 Menu icons", callback_data: "adm:menuicons" },
     ],
-    [{ text: "🆕 New product", callback_data: "adm:newprod" }],
+    [
+      { text: "🖼 Page icons", callback_data: "adm:pageicons" },
+      { text: "🆕 Add product", callback_data: "adm:npw" },
+    ],
+    [{ text: "⚡ Quick add (one line)", callback_data: "adm:newprod" }],
     [{ text: "🏠 Home", callback_data: "home" }],
 
   ];
@@ -1450,6 +1556,108 @@ async function admMenuIconView() {
   };
 }
 
+async function admPageIconView() {
+  const settings = await getSettings();
+  const kb: Button[][] = (Object.keys(PAGE_ICONS) as PageIconKey[]).map((key) => {
+    const configured = (settings[`page_icon_${key}`] ?? "").trim();
+    const customId = /^\d{8,}$/.test(configured) ? configured : "";
+    return [
+      {
+        text: `${customId ? "" : configured || PAGE_ICONS[key][0]} ${PAGE_ICONS[key][1]}`.trim(),
+        callback_data: `adm:pi:${key}`,
+        ...(customId ? { icon_custom_emoji_id: customId } : {}),
+      },
+    ];
+  });
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🖼 <b>Page icons</b>\n\nEvery bot page (shop, product, checkout, payment, wallet, orders…) has a header icon.\n" +
+      "Pick a page, then send a normal emoji or a <b>Telegram Premium custom emoji</b>. Send <code>-</code> to reset.",
+    kb,
+  };
+}
+
+/* ------------------------------------------- step-by-step product wizard */
+
+type ProdDraft = {
+  name?: string;
+  price?: number;
+  icon?: string;
+  custom_emoji_id?: string;
+  description?: string;
+  delivery_type?: "auto" | "manual";
+  category_id?: string | null;
+};
+
+function draftSummary(d: ProdDraft) {
+  const icon = d.custom_emoji_id
+    ? `<tg-emoji emoji-id="${d.custom_emoji_id}">${escapeHtml(d.icon || "📦")}</tg-emoji>`
+    : escapeHtml(d.icon || "📦");
+  return (
+    `${icon} <b>${escapeHtml(d.name ?? "-")}</b>\n` +
+    `💎 Price: ${money(d.price ?? 0)}\n` +
+    `📦 Delivery: ${d.delivery_type ?? "—"}\n` +
+    (d.description ? `📝 ${escapeHtml(d.description)}\n` : "")
+  );
+}
+
+async function admWizardDeliveryView(d: ProdDraft) {
+  return {
+    text: `🆕 <b>New product · step 5/6</b>\n\n${draftSummary(d)}\nChoose the delivery type:`,
+    kb: [
+      [{ text: "⚡ Auto (from stock)", callback_data: "adm:npd:auto" }],
+      [{ text: "🙋 Manual (admin delivers)", callback_data: "adm:npd:manual" }],
+      [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+    ] as Button[][],
+  };
+}
+
+async function admWizardCategoryView(d: ProdDraft) {
+  const { data } = await db
+    .from("categories")
+    .select("id,name,emoji")
+    .order("sort_order")
+    .limit(20);
+  const kb: Button[][] = (data ?? []).map((c: any) => [
+    { text: `${c.emoji ?? "📁"} ${c.name}`, callback_data: `adm:npc:${c.id}` },
+  ]);
+  kb.push([{ text: "— No category —", callback_data: "adm:npc:none" }]);
+  kb.push([{ text: "✖️ Cancel", callback_data: "adm:stats" }]);
+  return { text: `🆕 <b>New product · step 6/6</b>\n\n${draftSummary(d)}\nPick a category:`, kb };
+}
+
+async function admCreateProduct(chatId: number, d: ProdDraft) {
+  const { data: created, error } = await db
+    .from("products")
+    .insert({
+      name: d.name,
+      emoji: d.icon || "📦",
+      telegram_custom_emoji_id: d.custom_emoji_id || null,
+      description: d.description || null,
+      price: d.price ?? 0,
+      delivery_type: d.delivery_type === "manual" ? "manual" : "auto",
+      category_id: d.category_id ?? null,
+      is_active: true,
+    })
+    .select("id,name")
+    .maybeSingle();
+
+  if (error || !created) {
+    await say(chatId, `❌ Could not create the product: ${escapeHtml(error?.message ?? "unknown error")}`, ADM_BACK);
+    return;
+  }
+
+  const kb: Button[][] = [];
+  if (d.delivery_type !== "manual") kb.push([{ text: "📦 Add stock now", callback_data: `adm:sp:${created.id}` }]);
+  kb.push([{ text: "🆕 Add another product", callback_data: "adm:npw" }]);
+  kb.push([{ text: "🎨 Set product icon", callback_data: `adm:ip:${created.id}` }]);
+  kb.push(ADM_BACK[0]!);
+  await say(chatId, `✅ <b>Product created!</b>\n\n${draftSummary(d)}`, kb);
+}
+
+
+
 
 
 
@@ -1499,7 +1707,8 @@ async function coView(chatId: number) {
     };
   }
   const { lines, subtotal, discount, total } = await coTotals(meta);
-  let text = `<b>C H E C K O U T</b>\n──────────────\n`;
+  const settings = await getSettings();
+  let text = `${pageIconHtml(settings, "checkout")} <b>C H E C K O U T</b>\n──────────────\n`;
   for (const l of lines) {
     text += `${productIconHtml(l.product)} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
   }
@@ -1526,6 +1735,7 @@ async function coPayView(chatId: number) {
   if (!meta) return await coView(chatId);
   const { total } = await coTotals(meta);
   const cfg = await binanceConfig();
+  const settings = await getSettings();
   const user = await getUser(chatId);
   const kb: Button[][] = [];
   if (Number(user.balance) >= total && total > 0)
@@ -1537,7 +1747,8 @@ async function coPayView(chatId: number) {
   }
   kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
   return {
-    text: `<b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+    text: `${pageIconHtml(settings, "payment")} <b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+
     kb,
   };
 }
@@ -1688,6 +1899,7 @@ async function startCheckout(chatId: number, items: CartLine[]) {
 }
 
 async function ordersView(chatId: number) {
+  const settings = await getSettings();
   const { data: rows } = await db
     .from("orders")
     .select("*")
@@ -1695,8 +1907,8 @@ async function ordersView(chatId: number) {
     .order("created_at", { ascending: false })
     .limit(10);
   const text = !rows?.length
-    ? `<b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
-    : `<b>M Y   O R D E R S</b>\n──────────────\n` +
+    ? `${pageIconHtml(settings, "orders")} <b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
+    : `${pageIconHtml(settings, "orders")} <b>M Y   O R D E R S</b>\n──────────────\n` +
       rows
         .map(
           (o: any) =>
@@ -2163,6 +2375,31 @@ async function handleCallback(cq: any) {
     } else if (action === "icons") {
       const v = await admIconPickView();
       await edit(v.text, v.kb);
+    } else if (action === "pageicons") {
+      const v = await admPageIconView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("pi:")) {
+      const pageKey = arg as PageIconKey;
+      if (!(pageKey in PAGE_ICONS)) return;
+      await setState(chatId, { ...st, awaiting: "adm_page_icon", adm_page_icon: pageKey });
+      await say(
+        chatId,
+        `🖼 Send the new header icon for <b>${PAGE_ICONS[pageKey][1]}</b>.\n\nNormal emoji or Telegram Premium custom emoji both work. Send <code>-</code> to reset.`,
+      );
+    } else if (action === "npw") {
+      await setState(chatId, { ...st, awaiting: "np_name", np: {} });
+      await say(chatId, "🆕 <b>New product · step 1/6</b>\n\nSend the product <b>name</b>.", [
+        [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+      ]);
+    } else if (action.startsWith("npd:")) {
+      const d = { ...(st.np ?? {}), delivery_type: arg === "manual" ? "manual" : "auto" } as ProdDraft;
+      await setState(chatId, { ...st, awaiting: null, np: d });
+      const v = await admWizardCategoryView(d);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("npc:")) {
+      const d = { ...(st.np ?? {}), category_id: arg === "none" ? null : arg } as ProdDraft;
+      await setState(chatId, { ...st, awaiting: null, np: null });
+      await admCreateProduct(chatId, d);
     } else if (action === "menuicons") {
       const v = await admMenuIconView();
       await edit(v.text, v.kb);
