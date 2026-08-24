@@ -1198,6 +1198,7 @@ async function handleMessage(msg: any) {
       if (!(await isAdmin(chatId))) return;
       const parts = text.split("|").map((s) => s.trim());
       const [icon, name, priceRaw, kind] = [parts[0] ?? "", parts[1] ?? "", parts[2] ?? "", parts[3] ?? "auto"];
+      const customEmojiId = customEmojiIdFromMessage(msg);
       const price = Number(String(priceRaw).replace(/[^0-9.]/g, ""));
       if (!name || !price) {
         await say(chatId, "❌ Format: <code>icon | name | price | auto/manual</code>", ADM_BACK);
@@ -1206,6 +1207,7 @@ async function handleMessage(msg: any) {
       const { error } = await db.from("products").insert({
         name,
         emoji: icon || "📦",
+        telegram_custom_emoji_id: customEmojiId || null,
         price,
         delivery_type: kind === "manual" ? "manual" : "auto",
         is_active: true,
