@@ -32,9 +32,9 @@ export const Route = createFileRoute("/store/")({
 function StorePage() {
   const fetchStore = useServerFn(listStorefront);
   const { data, isLoading } = useQuery({ queryKey: ["storefront"], queryFn: () => fetchStore() });
-  const { c } = Route.useSearch();
+  const { c, q: q0 } = Route.useSearch();
   const [cat, setCat] = useState<string>("all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(q0 ?? "");
 
   const categories = data?.categories ?? [];
   const linked = c ? categories.find((x: any) => String(x.name).toLowerCase().includes(c.toLowerCase())) : undefined;
