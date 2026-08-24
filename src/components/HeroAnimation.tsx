@@ -51,6 +51,18 @@ export function HeroAnimation() {
               <Bot className="h-4 w-4" /> Telegram bot
             </span>
           </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild size="lg" className="rounded-full px-7 shadow-lg shadow-primary/30">
+              <Link to="/store">
+                <ShoppingBag className="h-4 w-4" /> Browse Products
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="rounded-full px-7 glass-panel">
+              <Link to="/track">
+                <MessageCircle className="h-4 w-4" /> Track Order
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* right: animated flow */}
