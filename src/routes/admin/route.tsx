@@ -51,7 +51,7 @@ function AdminGate() {
   if (state === "ok") return <Outlet />;
   if (state === "loading")
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <div className="admin-theme flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Checking access…
       </div>
     );
@@ -77,8 +77,8 @@ function AdminLogin({ denied }: { denied: boolean }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm border-border/70 bg-card/80">
+    <div className="admin-theme admin-grid-bg flex min-h-screen items-center justify-center px-4">
+      <Card className="admin-panel w-full max-w-sm border-0">
         <CardHeader>
           <CardTitle>Admin console</CardTitle>
           <CardDescription>
