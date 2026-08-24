@@ -1,5 +1,15 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { priceTag } from "@/components/StoreShell";
+import type { StoreProduct } from "@/components/ProductCard";
 import {
   Bot,
   CreditCard,
@@ -17,6 +27,22 @@ export type HeroItem = {
   image_url?: string | null;
   accent?: string | null;
 };
+
+function matchProducts(name: string, products: StoreProduct[]) {
+  const words = name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((w) => w.length > 2);
+  const scored = products
+    .map((p) => {
+      const hay = `${p.name} ${p.description ?? ""}`.toLowerCase();
+      const score = words.reduce((s, w) => (hay.includes(w) ? s + 1 : s), 0);
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 6).map((x) => x.p);
+}
 
 const ACCENTS: Record<string, string> = {
   emerald: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
