@@ -2009,12 +2009,10 @@ async function fulfillCheckout(chatId: number, meta: CoMeta, methodKey: string, 
       `\n⏳ <b>${pending} item(s) need manual delivery.</b>\n` +
       `Our admin has been notified and will deliver here shortly. Please wait — you can check progress with /orders.\n`;
 
+  const settingsK = await getSettings();
   const kb: Button[][] = [
-    [{ text: "📦 My Orders", callback_data: "orders" }],
-    [
-      { text: "🛒 SHOP", callback_data: "shop:0" },
-      { text: "🏠 Home", callback_data: "home" },
-    ],
+    [uiBtn(settingsK, "ord_my", "orders")],
+    [uiBtn(settingsK, "ord_shop", "shop:0"), uiBtn(settingsK, "ord_home", "home")],
   ];
   return { text, kb };
 }
