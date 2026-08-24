@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Headphones, MessageCircle, ShieldCheck, ShoppingBag, Sparkles, Zap } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { listStorefront } from "@/lib/shop.functions";
 import { StoreShell } from "@/components/StoreShell";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ProductCard, type StoreProduct } from "@/components/ProductCard";
-import { Button } from "@/components/ui/button";
 import { HeroAnimation } from "@/components/HeroAnimation";
+import { FeatureButtons } from "@/components/FeatureButtons";
 import logo from "@/assets/qorix-logo.png";
 import hero3d from "@/assets/hero-3d.jpg";
 
