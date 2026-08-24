@@ -27,6 +27,7 @@ import { Route as StoreIdRouteImport } from './routes/store.$id'
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
 import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
 import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
+import { Route as ApiPublicBinanceAutoVerifyRouteImport } from './routes/api/public/binance/auto-verify'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -121,6 +122,12 @@ const AuthenticatedAccountProfileRoute =
     path: '/account/profile',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicBinanceAutoVerifyRoute =
+  ApiPublicBinanceAutoVerifyRouteImport.update({
+    id: '/api/public/binance/auto-verify',
+    path: '/api/public/binance/auto-verify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -146,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/account/': typeof AuthenticatedAccountIndexRoute
+  '/api/public/binance/auto-verify': typeof ApiPublicBinanceAutoVerifyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -165,6 +173,7 @@ export interface FileRoutesByTo {
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/account': typeof AuthenticatedAccountIndexRoute
+  '/api/public/binance/auto-verify': typeof ApiPublicBinanceAutoVerifyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
@@ -187,6 +196,7 @@ export interface FileRoutesById {
   '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/_authenticated/account/profile': typeof AuthenticatedAccountProfileRoute
   '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
+  '/api/public/binance/auto-verify': typeof ApiPublicBinanceAutoVerifyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/account/orders'
     | '/account/profile'
     | '/account/'
+    | '/api/public/binance/auto-verify'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/account/orders'
     | '/account/profile'
     | '/account'
+    | '/api/public/binance/auto-verify'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
@@ -249,6 +261,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account/orders'
     | '/_authenticated/account/profile'
     | '/_authenticated/account/'
+    | '/api/public/binance/auto-verify'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -260,6 +273,7 @@ export interface RootRouteChildren {
   TrackRoute: typeof TrackRoute
   StoreIdRoute: typeof StoreIdRoute
   StoreIndexRoute: typeof StoreIndexRoute
+  ApiPublicBinanceAutoVerifyRoute: typeof ApiPublicBinanceAutoVerifyRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -391,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/binance/auto-verify': {
+      id: '/api/public/binance/auto-verify'
+      path: '/api/public/binance/auto-verify'
+      fullPath: '/api/public/binance/auto-verify'
+      preLoaderRoute: typeof ApiPublicBinanceAutoVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -450,6 +471,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackRoute: TrackRoute,
   StoreIdRoute: StoreIdRoute,
   StoreIndexRoute: StoreIndexRoute,
+  ApiPublicBinanceAutoVerifyRoute: ApiPublicBinanceAutoVerifyRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
