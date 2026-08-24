@@ -248,11 +248,12 @@ async function shopView(page: number) {
   if (page > 0) nav.push({ text: "⬅️ Prev", callback_data: `shop:${page - 1}` });
   if (products.length > (page + 1) * PAGE) nav.push({ text: "Next ➡️", callback_data: `shop:${page + 1}` });
   if (nav.length) kb.push(nav);
+  kb.push([{ text: "🔄 Refresh Stock", callback_data: `shop:${page}` }]);
   kb.push([
     { text: "🧺 Cart", callback_data: "cart" },
-    { text: "🔄 Refresh", callback_data: `shop:${page}` },
-    { text: "🏠 Home", callback_data: "home" },
+    { text: "◀️ Main Menu", callback_data: "home" },
   ]);
+
 
   const text =
     `<b>P R O D U C T S</b>\n\n` +
@@ -1118,7 +1119,53 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
       return;
     }
+    case "adm_icon": {
+      state.awaiting = null;
+      const productId = String(state.adm_product ?? "");
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const raw = text.trim();
+      const icon = raw === "-" || !raw ? "📦" : raw.slice(0, 16);
+      const { data: p } = await db
+        .from("products")
+        .update({ emoji: icon })
+        .eq("id", productId)
+        .select("name")
+        .maybeSingle();
+      await say(
+        chatId,
+        p ? `✅ Icon updated: ${icon} <b>${escapeHtml(p.name)}</b>` : "❌ Product not found.",
+        [[{ text: "🎨 More icons", callback_data: "adm:icons" }], ADM_BACK[0]!],
+      );
+      return;
+    }
+    case "adm_newprod": {
+      state.awaiting = null;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId))) return;
+      const parts = text.split("|").map((s) => s.trim());
+      const [icon, name, priceRaw, kind] = [parts[0] ?? "", parts[1] ?? "", parts[2] ?? "", parts[3] ?? "auto"];
+      const price = Number(String(priceRaw).replace(/[^0-9.]/g, ""));
+      if (!name || !price) {
+        await say(chatId, "❌ Format: <code>icon | name | price | auto/manual</code>", ADM_BACK);
+        return;
+      }
+      const { error } = await db.from("products").insert({
+        name,
+        emoji: icon || "📦",
+        price,
+        delivery_type: kind === "manual" ? "manual" : "auto",
+        is_active: true,
+      });
+      await say(
+        chatId,
+        error ? `❌ ${escapeHtml(error.message)}` : `✅ Product created: ${icon || "📦"} <b>${escapeHtml(name)}</b> — ${money(price)}`,
+        [[{ text: "📦 Add stock", callback_data: "adm:stock" }], ADM_BACK[0]!],
+      );
+      return;
+    }
     case "adm_code": {
+
       state.awaiting = null;
       await setState(chatId, state);
       if (!(await isAdmin(chatId))) return;
@@ -1172,7 +1219,12 @@ export function adminKeyboard(): Button[][] {
       { text: "📢 Broadcast", callback_data: "adm:broadcast" },
       { text: "➕ Add balance", callback_data: "adm:addbal" },
     ],
+    [
+      { text: "🎨 Product icons", callback_data: "adm:icons" },
+      { text: "🆕 New product", callback_data: "adm:newprod" },
+    ],
     [{ text: "🏠 Home", callback_data: "home" }],
+
   ];
 }
 
@@ -1314,6 +1366,26 @@ async function admStockPickView() {
   kb.push(ADM_BACK[0]!);
   return { text: "📦 Pick the product to add stock to:", kb };
 }
+
+async function admIconPickView() {
+  const { data } = await db
+    .from("products")
+    .select("id,name,emoji")
+    .order("sort_order")
+    .limit(30);
+  if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:ip:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🎨 <b>Product icons</b>\n\nPick a product, then send the icon you want.\n" +
+      "You can send a normal emoji or a <b>Telegram Premium custom emoji</b> — it will be used as the product icon.",
+    kb,
+  };
+}
+
 
 
 
@@ -2024,6 +2096,16 @@ async function handleCallback(cq: any) {
     } else if (action === "stock") {
       const v = await admStockPickView();
       await edit(v.text, v.kb);
+    } else if (action === "icons") {
+      const v = await admIconPickView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("ip:")) {
+      await setState(chatId, { ...st, awaiting: "adm_icon", adm_product: arg });
+      await say(
+        chatId,
+        "🎨 Send the icon for this product now.\n\nA normal emoji or a <b>Premium custom emoji</b> both work. Send <code>-</code> to reset to 📦.",
+      );
+
     } else if (action.startsWith("sp:")) {
       await setState(chatId, { ...st, awaiting: "adm_stock", adm_product: arg });
       await say(chatId, "📦 Send the stock items — one per line.");
@@ -2036,7 +2118,16 @@ async function handleCallback(cq: any) {
     } else if (action === "addbal") {
       await setState(chatId, { ...st, awaiting: "addbal" });
       await say(chatId, "➕ Send: <code>telegram_id amount</code>");
+    } else if (action === "newprod") {
+      await setState(chatId, { ...st, awaiting: "adm_newprod" });
+      await say(
+        chatId,
+        "🆕 <b>New product</b>\n\nSend one line:\n<code>icon | name | price | auto/manual</code>\n\n" +
+          "Example:\n<code>🤖 | Gemini AI Pro 18m | 4.5 | auto</code>\n\n" +
+          "The icon can be a Premium custom emoji too.",
+      );
     }
+
     return;
   }
 }
