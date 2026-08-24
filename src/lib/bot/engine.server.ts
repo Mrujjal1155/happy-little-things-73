@@ -1555,6 +1555,7 @@ async function coPayView(chatId: number) {
   if (!meta) return await coView(chatId);
   const { total } = await coTotals(meta);
   const cfg = await binanceConfig();
+  const settings = await getSettings();
   const user = await getUser(chatId);
   const kb: Button[][] = [];
   if (Number(user.balance) >= total && total > 0)
@@ -1566,7 +1567,8 @@ async function coPayView(chatId: number) {
   }
   kb.push([{ text: "⬅️ Back", callback_data: "co" }]);
   return {
-    text: `<b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+    text: `${pageIconHtml(settings, "payment")} <b>P A Y M E N T</b>\n\nAmount to pay: <b>${money(total)}</b>\n\nChoose how you want to pay:`,
+
     kb,
   };
 }
