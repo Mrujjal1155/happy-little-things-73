@@ -49,7 +49,7 @@ export const listStorefront = createServerFn({ method: "GET" }).handler(async ()
   for (const s of stock ?? []) counts[s.product_id as string] = (counts[s.product_id as string] ?? 0) + 1;
 
   const products = base.map((p: any) => ({ ...p, stock: counts[p.id] ?? 0 }));
-  return { categories, products };
+  return { categories, products, heroItems: hero.data ?? [] };
 });
 
 export const getStoreProduct = createServerFn({ method: "GET" })
