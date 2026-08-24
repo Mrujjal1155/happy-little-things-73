@@ -1520,6 +1520,7 @@ export function adminKeyboard(): Button[][] {
       { text: "🖼 Page icons", callback_data: "adm:pageicons" },
       { text: "🆕 Add product", callback_data: "adm:npw" },
     ],
+    [{ text: "🎛 UI icons & tags", callback_data: "adm:ui" }],
     [{ text: "⚡ Quick add (one line)", callback_data: "adm:newprod" }],
     [{ text: "🏠 Home", callback_data: "home" }],
 
