@@ -1478,6 +1478,108 @@ async function admMenuIconView() {
   };
 }
 
+async function admPageIconView() {
+  const settings = await getSettings();
+  const kb: Button[][] = (Object.keys(PAGE_ICONS) as PageIconKey[]).map((key) => {
+    const configured = (settings[`page_icon_${key}`] ?? "").trim();
+    const customId = /^\d{8,}$/.test(configured) ? configured : "";
+    return [
+      {
+        text: `${customId ? "" : configured || PAGE_ICONS[key][0]} ${PAGE_ICONS[key][1]}`.trim(),
+        callback_data: `adm:pi:${key}`,
+        ...(customId ? { icon_custom_emoji_id: customId } : {}),
+      },
+    ];
+  });
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🖼 <b>Page icons</b>\n\nEvery bot page (shop, product, checkout, payment, wallet, orders…) has a header icon.\n" +
+      "Pick a page, then send a normal emoji or a <b>Telegram Premium custom emoji</b>. Send <code>-</code> to reset.",
+    kb,
+  };
+}
+
+/* ------------------------------------------- step-by-step product wizard */
+
+type ProdDraft = {
+  name?: string;
+  price?: number;
+  icon?: string;
+  custom_emoji_id?: string;
+  description?: string;
+  delivery_type?: "auto" | "manual";
+  category_id?: string | null;
+};
+
+function draftSummary(d: ProdDraft) {
+  const icon = d.custom_emoji_id
+    ? `<tg-emoji emoji-id="${d.custom_emoji_id}">${escapeHtml(d.icon || "📦")}</tg-emoji>`
+    : escapeHtml(d.icon || "📦");
+  return (
+    `${icon} <b>${escapeHtml(d.name ?? "-")}</b>\n` +
+    `💎 Price: ${money(d.price ?? 0)}\n` +
+    `📦 Delivery: ${d.delivery_type ?? "—"}\n` +
+    (d.description ? `📝 ${escapeHtml(d.description)}\n` : "")
+  );
+}
+
+async function admWizardDeliveryView(d: ProdDraft) {
+  return {
+    text: `🆕 <b>New product · step 5/6</b>\n\n${draftSummary(d)}\nChoose the delivery type:`,
+    kb: [
+      [{ text: "⚡ Auto (from stock)", callback_data: "adm:npd:auto" }],
+      [{ text: "🙋 Manual (admin delivers)", callback_data: "adm:npd:manual" }],
+      [{ text: "✖️ Cancel", callback_data: "adm:stats" }],
+    ] as Button[][],
+  };
+}
+
+async function admWizardCategoryView(d: ProdDraft) {
+  const { data } = await db
+    .from("categories")
+    .select("id,name,emoji")
+    .order("sort_order")
+    .limit(20);
+  const kb: Button[][] = (data ?? []).map((c: any) => [
+    { text: `${c.emoji ?? "📁"} ${c.name}`, callback_data: `adm:npc:${c.id}` },
+  ]);
+  kb.push([{ text: "— No category —", callback_data: "adm:npc:none" }]);
+  kb.push([{ text: "✖️ Cancel", callback_data: "adm:stats" }]);
+  return { text: `🆕 <b>New product · step 6/6</b>\n\n${draftSummary(d)}\nPick a category:`, kb };
+}
+
+async function admCreateProduct(chatId: number, d: ProdDraft) {
+  const { data: created, error } = await db
+    .from("products")
+    .insert({
+      name: d.name,
+      emoji: d.icon || "📦",
+      telegram_custom_emoji_id: d.custom_emoji_id || null,
+      description: d.description || null,
+      price: d.price ?? 0,
+      delivery_type: d.delivery_type === "manual" ? "manual" : "auto",
+      category_id: d.category_id ?? null,
+      is_active: true,
+    })
+    .select("id,name")
+    .maybeSingle();
+
+  if (error || !created) {
+    await say(chatId, `❌ Could not create the product: ${escapeHtml(error?.message ?? "unknown error")}`, ADM_BACK);
+    return;
+  }
+
+  const kb: Button[][] = [];
+  if (d.delivery_type !== "manual") kb.push([{ text: "📦 Add stock now", callback_data: `adm:sp:${created.id}` }]);
+  kb.push([{ text: "🆕 Add another product", callback_data: "adm:npw" }]);
+  kb.push([{ text: "🎨 Set product icon", callback_data: `adm:ip:${created.id}` }]);
+  kb.push(ADM_BACK[0]!);
+  await say(chatId, `✅ <b>Product created!</b>\n\n${draftSummary(d)}`, kb);
+}
+
+
+
 
 
 
