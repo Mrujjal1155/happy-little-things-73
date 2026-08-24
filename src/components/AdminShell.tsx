@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
+  Bell,
   BarChart3,
   Boxes,
   CreditCard,
+  LayoutDashboard,
   LogOut,
   Radio,
   ReceiptText,
+  Search,
   Settings,
   Ticket,
   Users,
@@ -17,17 +20,28 @@ import {
 import type { ReactNode } from "react";
 
 const NAV = [
-  { to: "/admin", label: "Analytics", hint: "Live overview", icon: BarChart3 },
-  { to: "/admin/products", label: "Products", hint: "Catalog & stock", icon: Boxes },
-  { to: "/admin/orders", label: "Orders", hint: "Fulfilment", icon: ReceiptText },
-  { to: "/admin/payments", label: "Payments", hint: "Deposits", icon: CreditCard },
-  { to: "/admin/users", label: "Users", hint: "Customers", icon: Users },
-  { to: "/admin/codes", label: "Codes", hint: "Redeem & coupons", icon: Ticket },
-  { to: "/admin/settings", label: "Settings", hint: "Bot config", icon: Settings },
-  { to: "/admin/webhook", label: "Webhook", hint: "Telegram link", icon: Radio },
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/admin/products", label: "Products", icon: Boxes },
+  { to: "/admin/orders", label: "Orders", icon: ReceiptText },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/codes", label: "Codes", icon: Ticket },
+  { to: "/admin/settings", label: "Settings", icon: Settings },
+  { to: "/admin/webhook", label: "Webhook", icon: Radio },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ] as const;
 
-export function AdminShell({ title, children }: { title: string; children: ReactNode }) {
+export function AdminShell({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -39,58 +53,83 @@ export function AdminShell({ title, children }: { title: string; children: React
   }
 
   return (
-    <div className="admin-theme min-h-screen admin-grid-bg">
-      {/* Horizontal top nav — same layout on every device */}
-      <header className="sticky top-0 z-40 border-b border-sidebar-border bg-sidebar">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 lg:gap-4 lg:px-8">
-          <div className="flex shrink-0 items-center gap-2.5">
-            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary text-lg font-black text-primary-foreground">
-              Q
-            </span>
-            <div className="hidden min-w-0 leading-tight md:block">
-              <p className="truncate text-sm font-semibold tracking-tight">QORIX</p>
-              <p className="truncate text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">Console</p>
-            </div>
-          </div>
-
-          <nav className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain">
-            {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                activeOptions={{ exact: item.to === "/admin" }}
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-              >
-                <item.icon className="size-4 shrink-0" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={signOut}>
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Sign out</span>
-          </Button>
+    <div className="admin-theme flex min-h-screen">
+      {/* Fixed vertical sidebar — identical on every device */}
+      <aside className="flex w-[4.25rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:w-[16rem]">
+        <div className="flex items-center gap-3 px-3 py-5 lg:px-5">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-lg font-black text-primary-foreground">
+            Q
+          </span>
+          <p className="hidden truncate text-xl font-extrabold tracking-tight lg:block">
+            QORIX<span className="text-muted-foreground">STORE</span>
+          </p>
         </div>
-      </header>
 
-      <div className="min-w-0">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/70 px-5 py-5 lg:px-8">
+        <nav className="flex flex-1 flex-col gap-1 px-2 pt-3 lg:px-3">
+          {NAV.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              activeOptions={{ exact: item.to === "/admin" }}
+              title={item.label}
+              className="flex items-center justify-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:justify-start"
+              activeProps={{
+                className: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+              }}
+            >
+              <item.icon className="size-5 shrink-0" />
+              <span className="hidden lg:inline">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mt-auto border-t border-sidebar-border px-2 py-4 lg:px-3">
+          <button
+            onClick={signOut}
+            className="flex w-full items-center justify-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:justify-start"
+          >
+            <LogOut className="size-5 shrink-0" />
+            <span className="hidden lg:inline">Sign out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main column */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/70 bg-sidebar/60 px-4 py-3 lg:px-6">
+          <label className="flex min-w-0 items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
+            <Search className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              placeholder="Search…"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+          <div className="flex shrink-0 items-center gap-2">
+            <button className="relative grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground">
+              <Bell className="size-4" />
+              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-primary" />
+            </button>
+            {actions}
+          </div>
+        </header>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 px-4 pt-6 lg:px-6">
           <div className="min-w-0">
-            <p className="text-[0.65rem] font-medium uppercase tracking-[0.3em] text-primary">Admin</p>
-            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+            <h1 className="truncate text-2xl font-extrabold tracking-tight lg:text-3xl">{title}</h1>
+            <p className="truncate text-sm text-muted-foreground">
+              {subtitle ?? "Portfolio performance overview for this month"}
+            </p>
           </div>
           <span className="hidden shrink-0 items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
             <span className="size-1.5 rounded-full bg-success" /> Systems online
           </span>
         </div>
-        <main className="px-5 pb-10 pt-6 lg:px-8">{children}</main>
+
+        <main className="min-w-0 px-4 pb-10 pt-5 lg:px-6">{children}</main>
       </div>
     </div>
   );
 }
-
 
 export function money(n: unknown) {
   return `$${Number(n ?? 0).toFixed(2)}`;
@@ -109,10 +148,10 @@ export function AdminPanel({
   children: ReactNode;
 }) {
   return (
-    <section className={cn("admin-panel rounded-xl", className)}>
+    <section className={cn("admin-panel rounded-2xl", className)}>
       {(title || action) && (
         <div className="flex items-center gap-3 border-b border-border/70 px-5 py-3.5">
-          {title && <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">{title}</h2>}
+          {title && <h2 className="text-base font-bold tracking-tight">{title}</h2>}
           {action && <div className="ml-auto">{action}</div>}
         </div>
       )}
