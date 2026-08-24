@@ -877,6 +877,9 @@ export async function announcePurchase(user: any, product: any, qty: number) {
 /* ------------------------------------------------------------- dispatchers */
 
 export async function handleUpdate(update: any) {
+  // Every interaction also runs a throttled background payment check, so
+  // Binance Pay / USDT deposits get approved automatically.
+  void sweepBinanceDeposits().catch(() => {});
   if (update.callback_query) return handleCallback(update.callback_query);
   const msg = update.message ?? update.edited_message;
   if (msg) return handleMessage(msg);
