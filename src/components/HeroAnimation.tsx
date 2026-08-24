@@ -70,8 +70,17 @@ const FALLBACK: HeroItem[] = [
   { name: "VPN Pro", accent: "sky" },
 ];
 
-export function HeroAnimation({ items }: { items?: HeroItem[] }) {
+export function HeroAnimation({
+  items,
+  products = [],
+}: {
+  items?: HeroItem[];
+  products?: StoreProduct[];
+}) {
   const cards = (items && items.length > 0 ? items : FALLBACK).slice(0, 6);
+  const [active, setActive] = useState<HeroItem | null>(null);
+  const matches = active ? matchProducts(active.name, products) : [];
+
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card via-background to-secondary/40 p-6 sm:p-10">
