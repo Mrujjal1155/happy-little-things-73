@@ -216,6 +216,7 @@ function SettingsPage() {
           <Button onClick={onSave}>Save menu icons</Button>
         </CardContent>
       </Card>
+      <HeroItemsCard />
     </AdminShell>
   );
 }
