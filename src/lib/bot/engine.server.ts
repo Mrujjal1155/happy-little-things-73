@@ -322,7 +322,7 @@ async function shopView(page: number) {
 
 
   const text =
-    `<b>P R O D U C T S</b>\n\n` +
+    `${pageIconHtml(settings, "shop")} <b>P R O D U C T S</b>\n\n` +
     `🟢 <b>${inStock} of ${products.length}</b> in stock\n` +
     `<i>Tap a product below to view details.</i>`;
   return { text, kb };
@@ -342,7 +342,8 @@ async function productView(productId: string) {
     ? Math.round((1 - Number(p.price) / Number(p.old_price)) * 100)
     : 0;
 
-  let text = "";
+  const settings = await getSettings();
+  let text = `${pageIconHtml(settings, "product")} <b>P R O D U C T</b>\n──────────────\n`;
   if (hasDrop) text += `🔥 <b>PRICE DROP</b>\n──────────────\n`;
   text += `${productIconHtml(p)} <b>${p.name}</b>\n\n`;
   if (p.description) text += `${p.description}\n\n`;
@@ -502,8 +503,9 @@ export async function binanceConfig() {
 
 async function walletView(user: any) {
   const cfg = await binanceConfig();
+  const s = await getSettings();
   const text =
-    `<b>W A L L E T</b>\n\n` +
+    `${pageIconHtml(s, "wallet")} <b>W A L L E T</b>\n\n` +
     `Your Balance and Spending Stats are:\n──────────────\n` +
     `💰 Balance: <b>${money(user.balance)}</b>\n` +
     `💎 Total Spent: ${money(user.total_spent)}\n` +
@@ -1525,7 +1527,8 @@ async function coView(chatId: number) {
     };
   }
   const { lines, subtotal, discount, total } = await coTotals(meta);
-  let text = `<b>C H E C K O U T</b>\n──────────────\n`;
+  const settings = await getSettings();
+  let text = `${pageIconHtml(settings, "checkout")} <b>C H E C K O U T</b>\n──────────────\n`;
   for (const l of lines) {
     text += `${productIconHtml(l.product)} <b>${l.product.name}</b>\n   ${l.qty} × ${money(l.product.price)} = <b>${money(l.subtotal)}</b>\n`;
   }
@@ -1714,6 +1717,7 @@ async function startCheckout(chatId: number, items: CartLine[]) {
 }
 
 async function ordersView(chatId: number) {
+  const settings = await getSettings();
   const { data: rows } = await db
     .from("orders")
     .select("*")
@@ -1721,8 +1725,8 @@ async function ordersView(chatId: number) {
     .order("created_at", { ascending: false })
     .limit(10);
   const text = !rows?.length
-    ? `<b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
-    : `<b>M Y   O R D E R S</b>\n──────────────\n` +
+    ? `${pageIconHtml(settings, "orders")} <b>M Y   O R D E R S</b>\n\nYou have no orders yet.`
+    : `${pageIconHtml(settings, "orders")} <b>M Y   O R D E R S</b>\n──────────────\n` +
       rows
         .map(
           (o: any) =>
