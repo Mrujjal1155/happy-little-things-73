@@ -76,7 +76,7 @@ async function signedGet(path: string, params: Record<string, string | number>, 
           Accept: "application/json",
         },
       });
-    } catch (e) {
+    } catch {
       last = { ok: false, status: 0, error: "Binance API unreachable (network error).", data: null };
       continue;
     }
