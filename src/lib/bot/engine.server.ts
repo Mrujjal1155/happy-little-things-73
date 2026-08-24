@@ -405,36 +405,33 @@ async function productView(productId: string) {
 
   const settings = await getSettings();
   let text = `${pageIconHtml(settings, "product")} <b>P R O D U C T</b>\n──────────────\n`;
-  if (hasDrop) text += `🔥 <b>PRICE DROP</b>\n──────────────\n`;
+  if (hasDrop) text += `${uiTag(settings, "prod_drop")}\n──────────────\n`;
   text += `${productIconHtml(p)} <b>${p.name}</b>\n\n`;
   if (p.description) text += `${p.description}\n\n`;
   if (hasDrop) {
-    text += `📉 Price Drop\n<s>${money(p.old_price)}</s> ➡️ <b>${money(p.price)}</b>  🔻 Save ${off}%\n`;
+    text += `<s>${money(p.old_price)}</s> ➡️ <b>${money(p.price)}</b>  ${uiTag(settings, "prod_save")} ${off}%\n`;
   } else {
-    text += `💎 Price: <b>${money(p.price)}</b>\n`;
+    text += `${uiTag(settings, "prod_price")}: <b>${money(p.price)}</b>\n`;
   }
   text +=
     p.delivery_type === "manual"
-      ? `📦 Delivery: manual (admin delivers)\n`
-      : `📦 In Stock: <b>${stock} available</b>\n`;
+      ? `${uiTag(settings, "prod_manual")}\n`
+      : `${uiTag(settings, "prod_stock")}: <b>${stock} available</b>\n`;
   if (p.manual_note) text += `\n<i>${p.manual_note}</i>\n`;
 
   const available = p.delivery_type === "manual" || stock > 0;
   const kb: Button[][] = [];
   if (available)
     kb.push([
-      { text: "🛒 Buy Now", callback_data: `qty:${p.id}` },
-      { text: "➕ Add to Cart", callback_data: `cadd:${p.id}:1` },
+      uiBtn(settings, "prod_buy", `qty:${p.id}`),
+      uiBtn(settings, "prod_addcart", `cadd:${p.id}:1`),
     ]);
-  else kb.push([{ text: "❌ Out of stock", callback_data: `p:${p.id}` }]);
+  else kb.push([uiBtn(settings, "prod_out", `p:${p.id}`)]);
   kb.push([
-    { text: "🔄 Refresh", callback_data: `p:${p.id}` },
-    { text: "⬅️ Back", callback_data: "shop:0" },
+    uiBtn(settings, "prod_refresh", `p:${p.id}`),
+    uiBtn(settings, "prod_back", "shop:0"),
   ]);
-  kb.push([
-    { text: "🧺 Cart", callback_data: "cart" },
-    { text: "🏠 Home", callback_data: "home" },
-  ]);
+  kb.push([uiBtn(settings, "prod_cart", "cart"), uiBtn(settings, "prod_home", "home")]);
   return { text, kb };
 }
 
