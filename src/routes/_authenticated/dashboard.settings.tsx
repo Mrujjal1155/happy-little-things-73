@@ -42,6 +42,22 @@ const FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "reseller_api_text", label: "Reseller API page", long: true },
 ];
 
+const MENU_ICON_FIELDS = [
+  ["menu_icon_shop", "Shop"],
+  ["menu_icon_cart", "Cart"],
+  ["menu_icon_orders", "Orders"],
+  ["menu_icon_wallet", "Wallet"],
+  ["menu_icon_freebies", "Freebies"],
+  ["menu_icon_profile", "Profile"],
+  ["menu_icon_referral", "Referral Store"],
+  ["menu_icon_support", "Support"],
+  ["menu_icon_emails", "Emails & Trials"],
+  ["menu_icon_api", "Reseller API"],
+  ["menu_icon_clear", "Clear Chat"],
+  ["menu_icon_refresh", "Refresh"],
+  ["menu_icon_back", "Back / Main Menu"],
+] as const;
+
 function SettingsPage() {
   const fetchSettings = useServerFn(getBotSettings);
   const save = useServerFn(saveBotSettings);
@@ -175,6 +191,29 @@ function SettingsPage() {
               Connect webhook
             </Button>
           </div>
+        </CardContent>
+      </Card>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Telegram menu icons</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            প্রতিটি ঘরে একটি সাধারণ emoji অথবা Telegram Premium custom emoji ID দিন। Premium emoji সরাসরি Telegram-এর /admin → Menu icons থেকেও সেট করা যায়।
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {MENU_ICON_FIELDS.map(([key, label]) => (
+              <div key={key} className="space-y-1">
+                <Label>{label}</Label>
+                <Input
+                  value={values[key] ?? ""}
+                  onChange={(e) => setValues({ ...values, [key]: e.target.value.trim() })}
+                  placeholder="Emoji or custom emoji ID"
+                />
+              </div>
+            ))}
+          </div>
+          <Button onClick={onSave}>Save menu icons</Button>
         </CardContent>
       </Card>
     </AdminShell>
