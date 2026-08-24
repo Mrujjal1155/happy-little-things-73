@@ -255,6 +255,7 @@ export type Database = {
           txid: string | null
           unit_price: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -277,6 +278,7 @@ export type Database = {
           txid?: string | null
           unit_price?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -299,6 +301,7 @@ export type Database = {
           txid?: string | null
           unit_price?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -416,6 +419,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       redeem_codes: {
         Row: {
