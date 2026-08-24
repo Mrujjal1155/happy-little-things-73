@@ -2563,6 +2563,36 @@ async function handleCallback(cq: any) {
     } else if (action === "pageicons") {
       const v = await admPageIconView();
       await edit(v.text, v.kb);
+    } else if (action === "ui") {
+      const v = await admUiGroupView();
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uig:")) {
+      const v = await admUiListView(arg);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uie:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      const v = await admUiItemView(arg as UiKey);
+      await edit(v.text, v.kb);
+    } else if (action.startsWith("uii:") || action.startsWith("uit:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      const wantIcon = action.startsWith("uii:");
+      await setState(chatId, {
+        ...st,
+        awaiting: wantIcon ? "adm_ui_icon" : "adm_ui_text",
+        adm_ui_key: arg,
+      });
+      await say(
+        chatId,
+        wantIcon
+          ? `🎨 Send the new icon for <b>${escapeHtml(UI_ELEMENTS[arg as UiKey].label)}</b>.\n\nNormal emoji or Telegram Premium custom emoji both work. Send <code>-</code> to reset.`
+          : `✏️ Send the new text for <b>${escapeHtml(UI_ELEMENTS[arg as UiKey].label)}</b>.\n\nSend <code>-</code> to restore the default text.`,
+      );
+    } else if (action.startsWith("uir:")) {
+      if (!(arg in UI_ELEMENTS)) return;
+      await db.from("bot_settings").upsert({ key: `ui_icon_${arg}`, value: "" }, { onConflict: "key" });
+      await db.from("bot_settings").upsert({ key: `ui_text_${arg}`, value: "" }, { onConflict: "key" });
+      const v = await admUiItemView(arg as UiKey);
+      await edit(v.text, v.kb);
     } else if (action.startsWith("pi:")) {
       const pageKey = arg as PageIconKey;
       if (!(pageKey in PAGE_ICONS)) return;
