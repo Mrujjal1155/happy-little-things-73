@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { BinanceSetupCard } from "@/components/BinanceSetupCard";
+import { HeroItemsCard } from "@/components/HeroItemsCard";
 
 export const Route = createFileRoute("/admin/settings")({
   head: () => ({
