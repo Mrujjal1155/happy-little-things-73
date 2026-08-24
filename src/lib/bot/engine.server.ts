@@ -1321,6 +1321,26 @@ async function admStockPickView() {
   return { text: "📦 Pick the product to add stock to:", kb };
 }
 
+async function admIconPickView() {
+  const { data } = await db
+    .from("products")
+    .select("id,name,emoji")
+    .order("sort_order")
+    .limit(30);
+  if (!data?.length) return { text: "No products yet.", kb: ADM_BACK };
+  const kb: Button[][] = data.map((p: any) => [
+    { text: `${p.emoji ?? "📦"} ${p.name}`, callback_data: `adm:ip:${p.id}` },
+  ]);
+  kb.push(ADM_BACK[0]!);
+  return {
+    text:
+      "🎨 <b>Product icons</b>\n\nPick a product, then send the icon you want.\n" +
+      "You can send a normal emoji or a <b>Telegram Premium custom emoji</b> — it will be used as the product icon.",
+    kb,
+  };
+}
+
+
 
 
 
