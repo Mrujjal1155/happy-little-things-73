@@ -1003,6 +1003,9 @@ async function handleMessage(msg: any) {
 
       const v = await shopView(0);
       await say(chatId, v.text, v.kb);
+    } else if (cmd === "flash" || cmd === "deals" || cmd === "sale") {
+      const v = await flashView();
+      await say(chatId, v.text, v.kb);
     } else if (cmd === "wallet") {
       const v = await walletView(fresh);
       await say(chatId, v.text, v.kb);
