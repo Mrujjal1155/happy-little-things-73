@@ -28,7 +28,7 @@ async function anonSupabase() {
 
 export const listStorefront = createServerFn({ method: "GET" }).handler(async () => {
   const sb = await anonSupabase();
-  const [cats, prods] = await Promise.all([
+  const [cats, prods, hero] = await Promise.all([
     sb.from("categories").select("id,name,emoji,sort_order,channel").eq("is_active", true).order("sort_order"),
     sb
       .from("products")
@@ -37,6 +37,7 @@ export const listStorefront = createServerFn({ method: "GET" }).handler(async ()
       )
       .eq("is_active", true)
       .order("sort_order"),
+    sb.from("hero_items").select("id,name,image_url,accent,sort_order").eq("is_active", true).order("sort_order"),
   ]);
   const categories = (cats.data ?? []).filter((c: any) => c.channel !== "telegram");
   const allowed = new Set(categories.map((c: any) => c.id));
