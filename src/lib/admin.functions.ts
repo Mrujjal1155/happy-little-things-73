@@ -628,3 +628,52 @@ export const toggleCoupon = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* ------------------------------------------------------- hero showcase items */
+
+export const listHeroItems = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data } = await (context as any).supabase
+      .from("hero_items")
+      .select("*")
+      .order("sort_order");
+    return data ?? [];
+  });
+
+export const saveHeroItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: { id?: string; name: string; image_url?: string; accent?: string; sort_order?: number; is_active?: boolean }) => {
+      const name = String(d.name ?? "").trim().slice(0, 60);
+      if (!name) throw new Error("Name is required");
+      return { ...d, name };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const sb = (context as any).supabase;
+    await assertAdmin(context);
+    const row = {
+      name: data.name,
+      image_url: data.image_url?.trim() || null,
+      accent: data.accent || "primary",
+      sort_order: data.sort_order ?? 0,
+      is_active: data.is_active ?? true,
+    };
+    const { error } = data.id
+      ? await sb.from("hero_items").update(row).eq("id", data.id)
+      : await sb.from("hero_items").insert(row);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteHeroItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await (context as any).supabase.from("hero_items").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
