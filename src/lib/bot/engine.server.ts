@@ -497,18 +497,19 @@ async function cartDetails(user: any) {
 }
 
 async function cartView(user: any) {
+  const settings = await getSettings();
   const { lines, total } = await cartDetails(user);
   if (!lines.length) {
     return {
-      text: `<b>Y O U R   C A R T</b>\n\n🧺 Your cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
+      text: `${pageIconHtml(settings, "cart")} <b>Y O U R   C A R T</b>\n\nYour cart is empty.\n\n<i>Browse the shop and tap “Add to Cart”.</i>`,
       kb: [
-        [{ text: "🛒 SHOP", callback_data: "shop:0" }],
-        [{ text: "🏠 Home", callback_data: "home" }],
+        [iconButton(settings, "shop", "shop:0")],
+        [uiBtn(settings, "cart_home", "home")],
       ] as Button[][],
     };
   }
 
-  let text = `<b>Y O U R   C A R T</b>\n──────────────\n`;
+  let text = `${pageIconHtml(settings, "cart")} <b>Y O U R   C A R T</b>\n──────────────\n`;
   const kb: Button[][] = [];
   let issues = 0;
   for (const l of lines) {
