@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard/codes")({
+export const Route = createFileRoute("/admin/codes")({
   head: () => ({
     meta: [
       { title: "Redeem Codes — Shop Bot Admin" },

@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard/products")({
+export const Route = createFileRoute("/admin/products")({
   head: () => ({
     meta: [
       { title: "Products & Stock — Shop Bot Admin" },

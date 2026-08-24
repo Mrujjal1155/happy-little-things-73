@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Clock,
   Headphones,
@@ -10,14 +10,28 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  UserRound,
 } from "lucide-react";
 import logo from "@/assets/qorix-logo.png";
+import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "@/components/theme";
 import { CategoryIcon } from "@/components/CategoryIcon";
 
 const CATEGORY_LINKS = ["AI Tools", "Creative", "Productivity", "VPN", "Streaming", "Social"];
 
+function useSignedIn() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  return signedIn;
+}
+
 export function StoreShell({ children }: { children: ReactNode }) {
+  const signedIn = useSignedIn();
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
@@ -69,13 +83,24 @@ export function StoreShell({ children }: { children: ReactNode }) {
 
           <div className="ml-auto flex items-center gap-0.5">
             <ThemeToggle />
-            <Link
-              to="/auth"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <LogIn className="h-4 w-4" />
-              <span className="hidden sm:inline">Log in</span>
-            </Link>
+            {signedIn ? (
+              <Link
+                to="/account"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                activeProps={{ className: "bg-secondary text-foreground" }}
+              >
+                <UserRound className="h-4 w-4" />
+                <span className="hidden sm:inline">My Account</span>
+              </Link>
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="hidden sm:inline">Log in</span>
+              </Link>
+            )}
             <Link
               to="/track"
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -148,8 +173,8 @@ export function StoreShell({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/auth" className="transition-colors hover:text-primary">
-                    Admin log in
+                  <Link to="/account" className="transition-colors hover:text-primary">
+                    My account
                   </Link>
                 </li>
               </ul>

@@ -6,7 +6,7 @@ import { AdminShell, money } from "@/components/AdminShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/dashboard/")({
+export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [
       { title: "Overview — Shop Bot Admin" },

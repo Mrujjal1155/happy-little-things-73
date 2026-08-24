@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { BinanceSetupCard } from "@/components/BinanceSetupCard";
 
-export const Route = createFileRoute("/_authenticated/dashboard/settings")({
+export const Route = createFileRoute("/admin/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Shop Bot Admin" },

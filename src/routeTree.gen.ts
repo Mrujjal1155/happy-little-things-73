@@ -11,18 +11,22 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as TrackRouteImport } from './routes/track'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminCodesRouteImport } from './routes/admin/codes'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminWebhookRouteImport } from './routes/admin/webhook'
 import { Route as StoreIndexRouteImport } from './routes/store.index'
 import { Route as StoreIdRouteImport } from './routes/store.$id'
-import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
-import { Route as AuthenticatedDashboardCodesRouteImport } from './routes/_authenticated/dashboard.codes'
-import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
-import { Route as AuthenticatedDashboardPaymentsRouteImport } from './routes/_authenticated/dashboard.payments'
-import { Route as AuthenticatedDashboardProductsRouteImport } from './routes/_authenticated/dashboard.products'
-import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard.settings'
-import { Route as AuthenticatedDashboardUsersRouteImport } from './routes/_authenticated/dashboard.users'
-import { Route as AuthenticatedDashboardWebhookRouteImport } from './routes/_authenticated/dashboard.webhook'
+import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
+import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
+import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -32,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -44,6 +53,46 @@ const TrackRoute = TrackRouteImport.update({
   path: '/track',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminCodesRoute = AdminCodesRouteImport.update({
+  id: '/codes',
+  path: '/codes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminWebhookRoute = AdminWebhookRouteImport.update({
+  id: '/webhook',
+  path: '/webhook',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const StoreIndexRoute = StoreIndexRouteImport.update({
   id: '/store/',
   path: '/store/',
@@ -54,52 +103,22 @@ const StoreIdRoute = StoreIdRouteImport.update({
   path: '/store/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardIndexRoute =
-  AuthenticatedDashboardIndexRouteImport.update({
-    id: '/dashboard/',
-    path: '/dashboard/',
+const AuthenticatedAccountIndexRoute =
+  AuthenticatedAccountIndexRouteImport.update({
+    id: '/account/',
+    path: '/account/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedDashboardCodesRoute =
-  AuthenticatedDashboardCodesRouteImport.update({
-    id: '/dashboard/codes',
-    path: '/dashboard/codes',
+const AuthenticatedAccountOrdersRoute =
+  AuthenticatedAccountOrdersRouteImport.update({
+    id: '/account/orders',
+    path: '/account/orders',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedDashboardOrdersRoute =
-  AuthenticatedDashboardOrdersRouteImport.update({
-    id: '/dashboard/orders',
-    path: '/dashboard/orders',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardPaymentsRoute =
-  AuthenticatedDashboardPaymentsRouteImport.update({
-    id: '/dashboard/payments',
-    path: '/dashboard/payments',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardProductsRoute =
-  AuthenticatedDashboardProductsRouteImport.update({
-    id: '/dashboard/products',
-    path: '/dashboard/products',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardSettingsRoute =
-  AuthenticatedDashboardSettingsRouteImport.update({
-    id: '/dashboard/settings',
-    path: '/dashboard/settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardUsersRoute =
-  AuthenticatedDashboardUsersRouteImport.update({
-    id: '/dashboard/users',
-    path: '/dashboard/users',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardWebhookRoute =
-  AuthenticatedDashboardWebhookRouteImport.update({
-    id: '/dashboard/webhook',
-    path: '/dashboard/webhook',
+const AuthenticatedAccountProfileRoute =
+  AuthenticatedAccountProfileRouteImport.update({
+    id: '/account/profile',
+    path: '/account/profile',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiPublicTelegramWebhookRoute =
@@ -111,109 +130,132 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/track': typeof TrackRoute
+  '/admin/codes': typeof AdminCodesRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/webhook': typeof AdminWebhookRoute
   '/store/$id': typeof StoreIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/store/': typeof StoreIndexRoute
-  '/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
-  '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
-  '/dashboard/payments': typeof AuthenticatedDashboardPaymentsRoute
-  '/dashboard/products': typeof AuthenticatedDashboardProductsRoute
-  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/dashboard/users': typeof AuthenticatedDashboardUsersRoute
-  '/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
-  '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/account/orders': typeof AuthenticatedAccountOrdersRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/account/': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/track': typeof TrackRoute
+  '/admin/codes': typeof AdminCodesRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/webhook': typeof AdminWebhookRoute
   '/store/$id': typeof StoreIdRoute
+  '/admin': typeof AdminIndexRoute
   '/store': typeof StoreIndexRoute
-  '/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
-  '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
-  '/dashboard/payments': typeof AuthenticatedDashboardPaymentsRoute
-  '/dashboard/products': typeof AuthenticatedDashboardProductsRoute
-  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/dashboard/users': typeof AuthenticatedDashboardUsersRoute
-  '/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
-  '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/account/orders': typeof AuthenticatedAccountOrdersRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/account': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/track': typeof TrackRoute
+  '/admin/codes': typeof AdminCodesRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/webhook': typeof AdminWebhookRoute
   '/store/$id': typeof StoreIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/store/': typeof StoreIndexRoute
-  '/_authenticated/dashboard/codes': typeof AuthenticatedDashboardCodesRoute
-  '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
-  '/_authenticated/dashboard/payments': typeof AuthenticatedDashboardPaymentsRoute
-  '/_authenticated/dashboard/products': typeof AuthenticatedDashboardProductsRoute
-  '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
-  '/_authenticated/dashboard/users': typeof AuthenticatedDashboardUsersRoute
-  '/_authenticated/dashboard/webhook': typeof AuthenticatedDashboardWebhookRoute
-  '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
+  '/_authenticated/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/auth'
     | '/track'
+    | '/admin/codes'
+    | '/admin/orders'
+    | '/admin/payments'
+    | '/admin/products'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/admin/webhook'
     | '/store/$id'
+    | '/admin/'
     | '/store/'
-    | '/dashboard/codes'
-    | '/dashboard/orders'
-    | '/dashboard/payments'
-    | '/dashboard/products'
-    | '/dashboard/settings'
-    | '/dashboard/users'
-    | '/dashboard/webhook'
-    | '/dashboard/'
+    | '/account/orders'
+    | '/account/profile'
+    | '/account/'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/track'
+    | '/admin/codes'
+    | '/admin/orders'
+    | '/admin/payments'
+    | '/admin/products'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/admin/webhook'
     | '/store/$id'
+    | '/admin'
     | '/store'
-    | '/dashboard/codes'
-    | '/dashboard/orders'
-    | '/dashboard/payments'
-    | '/dashboard/products'
-    | '/dashboard/settings'
-    | '/dashboard/users'
-    | '/dashboard/webhook'
-    | '/dashboard'
+    | '/account/orders'
+    | '/account/profile'
+    | '/account'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/admin'
     | '/auth'
     | '/track'
+    | '/admin/codes'
+    | '/admin/orders'
+    | '/admin/payments'
+    | '/admin/products'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/admin/webhook'
     | '/store/$id'
+    | '/admin/'
     | '/store/'
-    | '/_authenticated/dashboard/codes'
-    | '/_authenticated/dashboard/orders'
-    | '/_authenticated/dashboard/payments'
-    | '/_authenticated/dashboard/products'
-    | '/_authenticated/dashboard/settings'
-    | '/_authenticated/dashboard/users'
-    | '/_authenticated/dashboard/webhook'
-    | '/_authenticated/dashboard/'
+    | '/_authenticated/account/orders'
+    | '/_authenticated/account/profile'
+    | '/_authenticated/account/'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   TrackRoute: typeof TrackRoute
   StoreIdRoute: typeof StoreIdRoute
@@ -237,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -250,6 +299,62 @@ declare module '@tanstack/react-router' {
       fullPath: '/track'
       preLoaderRoute: typeof TrackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/codes': {
+      id: '/admin/codes'
+      path: '/codes'
+      fullPath: '/admin/codes'
+      preLoaderRoute: typeof AdminCodesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/webhook': {
+      id: '/admin/webhook'
+      path: '/webhook'
+      fullPath: '/admin/webhook'
+      preLoaderRoute: typeof AdminWebhookRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/store/': {
       id: '/store/'
@@ -265,60 +370,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard/': {
-      id: '/_authenticated/dashboard/'
-      path: '/dashboard'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
+    '/_authenticated/account/': {
+      id: '/_authenticated/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AuthenticatedAccountIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/dashboard/codes': {
-      id: '/_authenticated/dashboard/codes'
-      path: '/dashboard/codes'
-      fullPath: '/dashboard/codes'
-      preLoaderRoute: typeof AuthenticatedDashboardCodesRouteImport
+    '/_authenticated/account/orders': {
+      id: '/_authenticated/account/orders'
+      path: '/account/orders'
+      fullPath: '/account/orders'
+      preLoaderRoute: typeof AuthenticatedAccountOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/dashboard/orders': {
-      id: '/_authenticated/dashboard/orders'
-      path: '/dashboard/orders'
-      fullPath: '/dashboard/orders'
-      preLoaderRoute: typeof AuthenticatedDashboardOrdersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard/payments': {
-      id: '/_authenticated/dashboard/payments'
-      path: '/dashboard/payments'
-      fullPath: '/dashboard/payments'
-      preLoaderRoute: typeof AuthenticatedDashboardPaymentsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard/products': {
-      id: '/_authenticated/dashboard/products'
-      path: '/dashboard/products'
-      fullPath: '/dashboard/products'
-      preLoaderRoute: typeof AuthenticatedDashboardProductsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard/settings': {
-      id: '/_authenticated/dashboard/settings'
-      path: '/dashboard/settings'
-      fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard/users': {
-      id: '/_authenticated/dashboard/users'
-      path: '/dashboard/users'
-      fullPath: '/dashboard/users'
-      preLoaderRoute: typeof AuthenticatedDashboardUsersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard/webhook': {
-      id: '/_authenticated/dashboard/webhook'
-      path: '/dashboard/webhook'
-      fullPath: '/dashboard/webhook'
-      preLoaderRoute: typeof AuthenticatedDashboardWebhookRouteImport
+    '/_authenticated/account/profile': {
+      id: '/_authenticated/account/profile'
+      path: '/account/profile'
+      fullPath: '/account/profile'
+      preLoaderRoute: typeof AuthenticatedAccountProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/telegram/webhook': {
@@ -332,33 +402,50 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedDashboardCodesRoute: typeof AuthenticatedDashboardCodesRoute
-  AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
-  AuthenticatedDashboardPaymentsRoute: typeof AuthenticatedDashboardPaymentsRoute
-  AuthenticatedDashboardProductsRoute: typeof AuthenticatedDashboardProductsRoute
-  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
-  AuthenticatedDashboardUsersRoute: typeof AuthenticatedDashboardUsersRoute
-  AuthenticatedDashboardWebhookRoute: typeof AuthenticatedDashboardWebhookRoute
-  AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+  AuthenticatedAccountOrdersRoute: typeof AuthenticatedAccountOrdersRoute
+  AuthenticatedAccountProfileRoute: typeof AuthenticatedAccountProfileRoute
+  AuthenticatedAccountIndexRoute: typeof AuthenticatedAccountIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedDashboardCodesRoute: AuthenticatedDashboardCodesRoute,
-  AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
-  AuthenticatedDashboardPaymentsRoute: AuthenticatedDashboardPaymentsRoute,
-  AuthenticatedDashboardProductsRoute: AuthenticatedDashboardProductsRoute,
-  AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
-  AuthenticatedDashboardUsersRoute: AuthenticatedDashboardUsersRoute,
-  AuthenticatedDashboardWebhookRoute: AuthenticatedDashboardWebhookRoute,
-  AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  AuthenticatedAccountOrdersRoute: AuthenticatedAccountOrdersRoute,
+  AuthenticatedAccountProfileRoute: AuthenticatedAccountProfileRoute,
+  AuthenticatedAccountIndexRoute: AuthenticatedAccountIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AdminRouteRouteChildren {
+  AdminCodesRoute: typeof AdminCodesRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminWebhookRoute: typeof AdminWebhookRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminCodesRoute: AdminCodesRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminWebhookRoute: AdminWebhookRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   TrackRoute: TrackRoute,
   StoreIdRoute: StoreIdRoute,
