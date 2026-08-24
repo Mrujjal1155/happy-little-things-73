@@ -366,6 +366,7 @@ export type Database = {
           old_price: number | null
           price: number
           sort_order: number
+          telegram_custom_emoji_id: string | null
           updated_at: string
         }
         Insert: {
@@ -384,6 +385,7 @@ export type Database = {
           old_price?: number | null
           price?: number
           sort_order?: number
+          telegram_custom_emoji_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -402,6 +404,7 @@ export type Database = {
           old_price?: number | null
           price?: number
           sort_order?: number
+          telegram_custom_emoji_id?: string | null
           updated_at?: string
         }
         Relationships: [
