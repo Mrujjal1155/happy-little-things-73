@@ -23,7 +23,11 @@ export function HeroItemsCard() {
   const [busy, setBusy] = useState(false);
 
   async function onAdd() {
-    if (!name.trim()) return toast.error("Name দিন");
+    if (!name.trim()) {
+      toast.error("Name দিন");
+      return;
+    }
+
     setBusy(true);
     try {
       await save({ data: { name, image_url: image, sort_order: rows.length + 1 } });
