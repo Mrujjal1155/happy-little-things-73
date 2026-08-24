@@ -10,8 +10,12 @@ import { ProductCard, type StoreProduct } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/store/")({
-  validateSearch: (search: Record<string, unknown>): { c?: string } =>
-    typeof search["c"] === "string" ? { c: search["c"] as string } : {},
+  validateSearch: (search: Record<string, unknown>): { c?: string; q?: string } => {
+    const out: { c?: string; q?: string } = {};
+    if (typeof search["c"] === "string") out.c = search["c"];
+    if (typeof search["q"] === "string") out.q = search["q"];
+    return out;
+  },
   head: () => ({
     meta: [
       { title: "All Products — QORIX Store" },
@@ -28,9 +32,9 @@ export const Route = createFileRoute("/store/")({
 function StorePage() {
   const fetchStore = useServerFn(listStorefront);
   const { data, isLoading } = useQuery({ queryKey: ["storefront"], queryFn: () => fetchStore() });
-  const { c } = Route.useSearch();
+  const { c, q: q0 } = Route.useSearch();
   const [cat, setCat] = useState<string>("all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(q0 ?? "");
 
   const categories = data?.categories ?? [];
   const linked = c ? categories.find((x: any) => String(x.name).toLowerCase().includes(c.toLowerCase())) : undefined;

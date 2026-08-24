@@ -36,6 +36,8 @@ function Landing() {
   const categories = data?.categories ?? [];
   const products = (data?.products ?? []) as StoreProduct[];
   const countFor = (id: string) => products.filter((p: any) => p.category_id === id).length;
+  /* keep rows perfectly filled (5 per row) so no odd dangling card */
+  const visibleCategories = categories.slice(0, Math.max(5, Math.floor(categories.length / 5) * 5));
 
   return (
     <StoreShell>
@@ -58,7 +60,7 @@ function Landing() {
           }}
         />
         <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 lg:pt-24">
-          <HeroAnimation items={(data?.heroItems ?? []) as any} />
+          <HeroAnimation items={(data?.heroItems ?? []) as any} products={products} />
 
           <FeatureButtons />
 
@@ -69,17 +71,25 @@ function Landing() {
       {/* Categories */}
       {categories.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pb-14">
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {categories.map((c: any) => (
+          <div className="mb-4 flex items-center gap-3">
+            <h2 className="text-xl font-bold tracking-tight">Shop by category</h2>
+            <span className="h-px flex-1 bg-border" />
+            <Link to="/store" className="text-sm text-primary hover:underline">
+              All categories →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {visibleCategories.map((c: any) => (
               <Link
                 key={c.id}
                 to="/store"
+                search={{ c: c.name }}
                 className="group rounded-2xl border border-border bg-card px-4 py-6 text-center transition-all hover:-translate-y-1 hover:border-primary/60 hover:card-glow"
               >
                 <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
                   <CategoryIcon name={c.name} />
                 </span>
-                <h2 className="mt-3 text-sm font-semibold group-hover:text-primary">{c.name}</h2>
+                <h3 className="mt-3 text-sm font-semibold group-hover:text-primary">{c.name}</h3>
                 <p className="text-xs text-muted-foreground">{countFor(c.id)} products</p>
               </Link>
             ))}

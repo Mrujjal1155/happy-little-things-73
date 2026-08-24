@@ -1,5 +1,15 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { priceTag } from "@/components/StoreShell";
+import type { StoreProduct } from "@/components/ProductCard";
 import {
   Bot,
   CreditCard,
@@ -17,6 +27,22 @@ export type HeroItem = {
   image_url?: string | null;
   accent?: string | null;
 };
+
+function matchProducts(name: string, products: StoreProduct[]) {
+  const words = name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((w) => w.length > 2);
+  const scored = products
+    .map((p) => {
+      const hay = `${p.name} ${p.description ?? ""}`.toLowerCase();
+      const score = words.reduce((s, w) => (hay.includes(w) ? s + 1 : s), 0);
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 6).map((x) => x.p);
+}
 
 const ACCENTS: Record<string, string> = {
   emerald: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -44,8 +70,17 @@ const FALLBACK: HeroItem[] = [
   { name: "VPN Pro", accent: "sky" },
 ];
 
-export function HeroAnimation({ items }: { items?: HeroItem[] }) {
+export function HeroAnimation({
+  items,
+  products = [],
+}: {
+  items?: HeroItem[];
+  products?: StoreProduct[];
+}) {
   const cards = (items && items.length > 0 ? items : FALLBACK).slice(0, 6);
+  const [active, setActive] = useState<HeroItem | null>(null);
+  const matches = active ? matchProducts(active.name, products) : [];
+
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card via-background to-secondary/40 p-6 sm:p-10">
@@ -96,9 +131,12 @@ export function HeroAnimation({ items }: { items?: HeroItem[] }) {
         <div className="relative mx-auto w-full max-w-md">
           <div className="relative h-72 sm:h-80">
             {cards.map((item, i) => (
-              <div
+              <button
+                type="button"
                 key={item.id ?? item.name}
-                className={`absolute ${SPOTS[i % SPOTS.length]} hero-float-${i % 6} flex w-40 items-center gap-2.5 rounded-xl border border-border bg-card/95 p-2.5 shadow-lg backdrop-blur transition-transform hover:scale-[1.06]`}
+                onClick={() => setActive(item)}
+                aria-label={`View ${item.name} products`}
+                className={`absolute ${SPOTS[i % SPOTS.length]} hero-float-${i % 6} flex w-40 cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-card/95 p-2.5 text-left shadow-lg backdrop-blur transition-transform hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
                 style={{ animationDelay: `${i * 0.7}s` }}
               >
                 {item.image_url ? (
@@ -116,7 +154,7 @@ export function HeroAnimation({ items }: { items?: HeroItem[] }) {
                   </span>
                 )}
                 <span className="truncate text-xs font-semibold">{item.name}</span>
-              </div>
+              </button>
             ))}
 
             {/* center hub */}
@@ -161,6 +199,61 @@ export function HeroAnimation({ items }: { items?: HeroItem[] }) {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {active?.image_url ? (
+                <img src={active.image_url} alt="" className="h-8 w-8 rounded-lg object-cover" />
+              ) : (
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/15 text-primary">
+                  <Package className="h-4 w-4" />
+                </span>
+              )}
+              {active?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {matches.length > 0
+                ? "Pick a plan below — instant delivery after payment."
+                : "No exact match yet. Browse the full catalogue for similar products."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto">
+            {matches.map((p) => (
+              <Link
+                key={p.id}
+                to="/store/$id"
+                params={{ id: p.id }}
+                onClick={() => setActive(null)}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:border-primary/60"
+              >
+                {p.image_url ? (
+                  <img src={p.image_url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                    <Package className="h-5 w-5" />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{p.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {p.delivery_time ?? "Instant delivery"}
+                  </span>
+                </span>
+                <span className="text-sm font-bold text-primary">{priceTag(p.price)}</span>
+              </Link>
+            ))}
+          </div>
+
+          <Button asChild className="w-full rounded-full">
+            <Link to="/store" search={active ? { q: active.name } : {}} onClick={() => setActive(null)}>
+              <ShoppingBag className="h-4 w-4" /> View in store
+            </Link>
+          </Button>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
