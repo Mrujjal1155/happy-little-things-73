@@ -69,11 +69,19 @@ function Landing() {
       {/* Categories */}
       {categories.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pb-14">
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {categories.map((c: any) => (
+          <div className="mb-4 flex items-center gap-3">
+            <h2 className="text-xl font-bold tracking-tight">Shop by category</h2>
+            <span className="h-px flex-1 bg-border" />
+            <Link to="/store" className="text-sm text-primary hover:underline">
+              All categories →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {visibleCategories.map((c: any) => (
               <Link
                 key={c.id}
                 to="/store"
+                search={{ c: c.name }}
                 className="group rounded-2xl border border-border bg-card px-4 py-6 text-center transition-all hover:-translate-y-1 hover:border-primary/60 hover:card-glow"
               >
                 <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
