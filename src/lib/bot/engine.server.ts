@@ -1323,6 +1323,26 @@ async function handleMessage(msg: any) {
       await say(chatId, `✅ Added ${lines.length} stock item(s).`, ADM_BACK);
       return;
     }
+    case "adm_ui_icon":
+    case "adm_ui_text": {
+      const mode = state.awaiting;
+      state.awaiting = null;
+      const uiKey = String(state.adm_ui_key ?? "") as UiKey;
+      await setState(chatId, state);
+      if (!(await isAdmin(chatId)) || !(uiKey in UI_ELEMENTS)) return;
+      const raw = text.trim();
+      if (mode === "adm_ui_icon") {
+        const customEmojiId = raw === "-" ? "" : customEmojiIdFromMessage(msg);
+        const value = raw === "-" ? "" : customEmojiId || raw.slice(0, 16);
+        await db.from("bot_settings").upsert({ key: `ui_icon_${uiKey}`, value }, { onConflict: "key" });
+      } else {
+        const value = raw === "-" ? "" : raw.slice(0, 40);
+        await db.from("bot_settings").upsert({ key: `ui_text_${uiKey}`, value }, { onConflict: "key" });
+      }
+      const v = await admUiItemView(uiKey);
+      await say(chatId, `✅ Updated.\n\n${v.text}`, v.kb);
+      return;
+    }
     case "adm_icon": {
       state.awaiting = null;
       const productId = String(state.adm_product ?? "");
