@@ -25,6 +25,7 @@ import { Route as AdminWebhookRouteImport } from './routes/admin/webhook'
 import { Route as StoreIndexRouteImport } from './routes/store.index'
 import { Route as StoreIdRouteImport } from './routes/store.$id'
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
+import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -107,6 +108,12 @@ const AuthenticatedAccountIndexRoute =
     path: '/account/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAccountOrdersRoute =
+  AuthenticatedAccountOrdersRouteImport.update({
+    id: '/account/orders',
+    path: '/account/orders',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -129,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/store/$id': typeof StoreIdRoute
   '/admin/': typeof AdminIndexRoute
   '/store/': typeof StoreIndexRoute
+  '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
   '/store/$id': typeof StoreIdRoute
   '/admin': typeof AdminIndexRoute
   '/store': typeof StoreIndexRoute
+  '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -166,6 +175,7 @@ export interface FileRoutesById {
   '/store/$id': typeof StoreIdRoute
   '/admin/': typeof AdminIndexRoute
   '/store/': typeof StoreIndexRoute
+  '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/store/$id'
     | '/admin/'
     | '/store/'
+    | '/account/orders'
     | '/account/'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/store/$id'
     | '/admin'
     | '/store'
+    | '/account/orders'
     | '/account'
     | '/api/public/telegram/webhook'
   id:
@@ -222,6 +234,7 @@ export interface FileRouteTypes {
     | '/store/$id'
     | '/admin/'
     | '/store/'
+    | '/_authenticated/account/orders'
     | '/_authenticated/account/'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/account/orders': {
+      id: '/_authenticated/account/orders'
+      path: '/account/orders'
+      fullPath: '/account/orders'
+      preLoaderRoute: typeof AuthenticatedAccountOrdersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -362,10 +382,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountOrdersRoute: typeof AuthenticatedAccountOrdersRoute
   AuthenticatedAccountIndexRoute: typeof AuthenticatedAccountIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountOrdersRoute: AuthenticatedAccountOrdersRoute,
   AuthenticatedAccountIndexRoute: AuthenticatedAccountIndexRoute,
 }
 
