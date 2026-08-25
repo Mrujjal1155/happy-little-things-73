@@ -54,6 +54,20 @@ export function sendMessage(
   });
 }
 
+export function sendPhoto(
+  chat_id: number | string,
+  photo: string,
+  caption?: string,
+  keyboard?: Button[][],
+) {
+  return tg("sendPhoto", {
+    chat_id,
+    photo,
+    ...(caption ? { caption, parse_mode: "HTML" } : {}),
+    ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+  });
+}
+
 export function editMessage(
   chat_id: number | string,
   message_id: number,
