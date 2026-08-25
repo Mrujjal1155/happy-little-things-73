@@ -70,6 +70,27 @@ function UsersPage() {
         <Input placeholder="Search username or telegram id" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      <Card className="mb-4">
+        <CardContent className="space-y-3 pt-6">
+          <p className="text-sm font-semibold">📢 Broadcast (text or image)</p>
+          <textarea
+            className="min-h-24 w-full rounded-md border border-border bg-background p-2 text-sm"
+            placeholder="Message text (HTML allowed) — used as image caption when an image URL is set"
+            value={bcText}
+            onChange={(e) => setBcText(e.target.value)}
+          />
+          <Input
+            placeholder="Image URL (https://...) — optional"
+            value={bcImage}
+            onChange={(e) => setBcImage(e.target.value)}
+          />
+          <Button disabled={bcBusy || (!bcText.trim() && !bcImage.trim())} onClick={sendBroadcast}>
+            {bcBusy ? "Sending..." : "Send broadcast"}
+          </Button>
+        </CardContent>
+      </Card>
+
+
       <Card>
         <CardContent className="overflow-x-auto pt-6">
           <table className="w-full text-sm">
