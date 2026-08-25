@@ -1195,13 +1195,35 @@ async function handleMessage(msg: any) {
       state.awaiting = null;
       await setState(chatId, state);
       if (!(await isAdmin(chatId))) return;
-      const { data: all } = await db.from("bot_users").select("telegram_id").eq("is_banned", false);
-      let sent = 0;
-      for (const u of all ?? []) {
-        const r = await sendMessage(u.telegram_id, text);
-        if (r.ok) sent++;
+      const { data: all } = await db.from("bot_users").select("telegram_id,is_banned");
+      const targets = (all ?? []).filter((u: any) => !u.is_banned);
+      // photo (largest size) or document image, caption already captured in `text`
+      const photoId: string | undefined =
+        (Array.isArray(msg.photo) && msg.photo.length
+          ? msg.photo[msg.photo.length - 1]?.file_id
+          : undefined) ??
+        (String(msg.document?.mime_type ?? "").startsWith("image/") ? msg.document?.file_id : undefined);
+
+      if (!photoId && !text.trim()) {
+        await say(chatId, "❌ Send text or a photo (caption optional) to broadcast.");
+        return;
       }
-      await say(chatId, `📢 Broadcast sent to ${sent} users.`);
+
+      const { sendPhoto } = await import("@/lib/telegram.server");
+      let sent = 0;
+      let failed = 0;
+      for (const u of targets) {
+        const r = photoId
+          ? await sendPhoto(u.telegram_id, photoId, text || undefined)
+          : await sendMessage(u.telegram_id, text);
+        if (r.ok) sent++;
+        else failed++;
+      }
+      await say(
+        chatId,
+        `📢 Broadcast ${photoId ? "(with image) " : ""}sent to ${sent}/${targets.length} users.` +
+          (failed ? `\n⚠️ Failed: ${failed}` : ""),
+      );
       return;
     }
     case "addbal": {
