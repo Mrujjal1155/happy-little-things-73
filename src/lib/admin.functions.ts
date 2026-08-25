@@ -344,6 +344,37 @@ export const messageUser = createServerFn({ method: "POST" })
     return { ok: res.ok };
   });
 
+export const broadcastMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { text: string; image_url?: string }) => {
+    const text = String(d.text ?? "").trim();
+    const image_url = String(d.image_url ?? "").trim();
+    if (!text && !image_url) throw new Error("Write a message or add an image URL");
+    if (image_url && !/^https?:\/\//i.test(image_url)) throw new Error("Image URL must start with http(s)://");
+    return { text, image_url };
+  })
+  .handler(async ({ data, context }) => {
+    const sb = (context as any).supabase;
+    await assertAdmin(context);
+    const { data: rows } = await sb.from("bot_users").select("telegram_id,is_banned");
+    const targets = (rows ?? []).filter((u: any) => !u.is_banned);
+    const { sendMessage, sendPhoto } = await import("@/lib/telegram.server");
+    let sent = 0;
+    let failed = 0;
+    let lastError = "";
+    for (const u of targets) {
+      const res = data.image_url
+        ? await sendPhoto(u.telegram_id, data.image_url, data.text || undefined)
+        : await sendMessage(u.telegram_id, data.text);
+      if (res.ok) sent++;
+      else {
+        failed++;
+        lastError = res.description ?? lastError;
+      }
+    }
+    return { sent, failed, total: targets.length, error: lastError };
+  });
+
 /* ------------------------------------------------------------ redeem codes */
 
 export const listCodes = createServerFn({ method: "GET" })

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { adjustBalance, listBotUsers, messageUser, setBanned } from "@/lib/admin.functions";
+import { adjustBalance, broadcastMessage, listBotUsers, messageUser, setBanned } from "@/lib/admin.functions";
 import { AdminShell, money } from "@/components/AdminShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,25 @@ function UsersPage() {
   const adjust = useServerFn(adjustBalance);
   const ban = useServerFn(setBanned);
   const dm = useServerFn(messageUser);
+  const broadcast = useServerFn(broadcastMessage);
+  const [bcText, setBcText] = useState("");
+  const [bcImage, setBcImage] = useState("");
+  const [bcBusy, setBcBusy] = useState(false);
+
+  async function sendBroadcast() {
+    setBcBusy(true);
+    try {
+      const r: any = await broadcast({ data: { text: bcText, image_url: bcImage } });
+      if (r.sent === 0) toast.error(`Broadcast failed (0/${r.total}). ${r.error ?? ""}`);
+      else toast.success(`Broadcast sent to ${r.sent}/${r.total} users`);
+      setBcText("");
+      setBcImage("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Broadcast failed");
+    } finally {
+      setBcBusy(false);
+    }
+  }
 
   const { data } = useQuery({ queryKey: ["botUsers", search], queryFn: () => fetchUsers({ data: { search } }) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["botUsers"] });
@@ -50,6 +69,27 @@ function UsersPage() {
       <div className="mb-4 flex max-w-sm gap-2">
         <Input placeholder="Search username or telegram id" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
+
+      <Card className="mb-4">
+        <CardContent className="space-y-3 pt-6">
+          <p className="text-sm font-semibold">📢 Broadcast (text or image)</p>
+          <textarea
+            className="min-h-24 w-full rounded-md border border-border bg-background p-2 text-sm"
+            placeholder="Message text (HTML allowed) — used as image caption when an image URL is set"
+            value={bcText}
+            onChange={(e) => setBcText(e.target.value)}
+          />
+          <Input
+            placeholder="Image URL (https://...) — optional"
+            value={bcImage}
+            onChange={(e) => setBcImage(e.target.value)}
+          />
+          <Button disabled={bcBusy || (!bcText.trim() && !bcImage.trim())} onClick={sendBroadcast}>
+            {bcBusy ? "Sending..." : "Send broadcast"}
+          </Button>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardContent className="overflow-x-auto pt-6">
