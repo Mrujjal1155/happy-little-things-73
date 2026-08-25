@@ -2689,7 +2689,10 @@ async function handleCallback(cq: any) {
       await say(chatId, "🎁 Send the code value, e.g. <code>10</code>");
     } else if (action === "broadcast") {
       await setState(chatId, { ...st, awaiting: "broadcast" });
-      await say(chatId, "📢 Send the broadcast message text.");
+      await say(
+        chatId,
+        "📢 Send the broadcast now — text, or a <b>photo with caption</b> (image supported).",
+      );
     } else if (action === "addbal") {
       await setState(chatId, { ...st, awaiting: "addbal" });
       await say(chatId, "➕ Send: <code>telegram_id amount</code>");
