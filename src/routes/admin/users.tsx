@@ -31,6 +31,25 @@ function UsersPage() {
   const adjust = useServerFn(adjustBalance);
   const ban = useServerFn(setBanned);
   const dm = useServerFn(messageUser);
+  const broadcast = useServerFn(broadcastMessage);
+  const [bcText, setBcText] = useState("");
+  const [bcImage, setBcImage] = useState("");
+  const [bcBusy, setBcBusy] = useState(false);
+
+  async function sendBroadcast() {
+    setBcBusy(true);
+    try {
+      const r: any = await broadcast({ data: { text: bcText, image_url: bcImage } });
+      if (r.sent === 0) toast.error(`Broadcast failed (0/${r.total}). ${r.error ?? ""}`);
+      else toast.success(`Broadcast sent to ${r.sent}/${r.total} users`);
+      setBcText("");
+      setBcImage("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Broadcast failed");
+    } finally {
+      setBcBusy(false);
+    }
+  }
 
   const { data } = useQuery({ queryKey: ["botUsers", search], queryFn: () => fetchUsers({ data: { search } }) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["botUsers"] });
