@@ -939,7 +939,7 @@ export async function handleUpdate(update: any) {
 async function handleMessage(msg: any) {
   if (!msg.from || msg.chat?.type !== "private") return;
   const chatId = msg.chat.id as number;
-  const text: string = msg.text ?? "";
+  const text: string = msg.text ?? msg.caption ?? "";
   const payload = text.startsWith("/start ") ? text.slice(7).trim() : undefined;
   const user = await upsertUser(msg.from, payload);
   if (!user) return;
